@@ -8,7 +8,8 @@ if __name__ == "__main__":
     # Print out what pipeline version we're using
     print('JWST pipeline version',jwst.__version__)
     # targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/"
-    targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD18511_post/"
+    # targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD18511_post/"
+    targetdir = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/"
 
     det1_dir = os.path.join(targetdir,"20240124_stage1") # Detector1 pipeline outputs will go here
 
@@ -16,7 +17,7 @@ if __name__ == "__main__":
     if not os.path.exists(det1_dir):
         os.makedirs(det1_dir)
 
-    uncal_files = glob(os.path.join(targetdir,"uncal","jw0141400*001_0210*_000*_nrs*_uncal.fits"))
+    uncal_files = glob(os.path.join(targetdir,"uncal","jw0*_uncal.fits"))
     uncal_files.sort()
     for uncal_file in uncal_files:
         print(uncal_file)

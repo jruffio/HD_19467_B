@@ -9,15 +9,18 @@ if __name__ == "__main__":
     print('JWST pipeline version',jwst.__version__)
 
     # targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/"
-    targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD18511_post/"
-    det1_dir = os.path.join(targetdir,"20240124_stage1") # Detector1 pipeline outputs will go here
-    spec2_dir = os.path.join(targetdir,"20240124_stage2") # Spec2 pipeline outputs will go here
+    # targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD18511_post/"
+    targetdir = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/"
+    # det1_dir = os.path.join(targetdir,"20240124_stage1") # Detector1 pipeline outputs will go here
+    # spec2_dir = os.path.join(targetdir,"20240124_stage2") # Spec2 pipeline outputs will go here
+    det1_dir = os.path.join(targetdir,"20240124_stage1_clean") # Detector1 pipeline outputs will go here
+    spec2_dir = os.path.join(targetdir,"20240124_stage2_clean") # Spec2 pipeline outputs will go here
 
     # We need to check that the desired output directories exist, and if not create them
     if not os.path.exists(spec2_dir):
         os.makedirs(spec2_dir)
 
-    rate_files = glob(os.path.join(det1_dir,"jw0141400*001_0210*_000*_nrs*_rate.fits"))
+    rate_files = glob(os.path.join(det1_dir,"jw0*_rate.fits"))
     rate_files.sort()
     for rate_file in rate_files:
         print(rate_file)
