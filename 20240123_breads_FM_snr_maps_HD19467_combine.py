@@ -33,16 +33,42 @@ if __name__ == "__main__":
     if not os.path.exists(out_png):
         os.makedirs(out_png)
 
-    # detector,photfilter_name,wv_sampling = "nrs1", "F360M", np.arange(2.859509, 4.1012874, 0.0006763935)
-    detector, photfilter_name, wv_sampling = "nrs2", "F460M", np.arange(4.081285, 5.278689, 0.0006656647)
 
-    filelist = glob("/stow/jruffio/data/JWST/nirspec/HD_19467/20240125_MAST_1414/MAST_2024-01-25T1449/JWST/jw01414004001_02101_000*_" + detector + "/jw01414004001_02101_*_" + detector + "_cal.fits")
+    ####################
+    ## To be modified
+    ####################
+    # for plotting
+    fontsize = 12
+    # Directories to update
+    os.environ["WEBBPSF_PATH"] = "/stow/jruffio/data/webbPSF/webbpsf-data"
+    crds_dir="/stow/jruffio/data/JWST/crds_cache/"
+    # External_dir should external files like the NIRCam filters
+    external_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/external/"
+    # Science data: List of stage 2 cal.fits files
+    filelist = glob("/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/20240124_stage2_clean/jw01414004001_02101_*_nrs*_cal.fits")
     filelist.sort()
-    print("I found the following files:")
-    for fid, filename in enumerate(filelist):
+    for filename in filelist:
         print(filename)
     print("N files: {0}".format(len(filelist)))
-
+    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_out_fm/xy/"
+    out_png = out_dir.replace("xy","figures")
+    if not os.path.exists(out_png):
+        os.makedirs(out_png)
+    # Path to a s3d cube to extract an empirical PSF profile
+    A0_filename = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/MAST_2023-04-23T0044/JWST/jw01128-o009_t007_nirspec_g395h-f290lp/jw01128-o009_t007_nirspec_g395h-f290lp_s3d.fits"
+    ####################
+    # detector,photfilter_name = "nrs1", "F360M"
+    detector, photfilter_name = "nrs2", "F460M"
+    # RA Dec offset of the companion HD19467B
+    ra_offset = -1332.871/1000. # ra offset in as
+    dec_offset = -875.528/1000. # dec offset in as
+        # Offsets for HD 19467 B from https://www.whereistheplanet.com/
+        # RA Offset = -1332.871 +/- 10.886 mas
+        # Dec Offset = -875.528 +/- 12.360 mas
+        # Separation = 1593.703 +/- 9.530 mas
+        # PA = 236.712 +/- 0.483 deg
+        # Reference: Brandt et al. 2021
+    # Absolute fluxes for the host star to be used in calculated flux ratios with the companion.
     HD19467_flux_MJy = {"F250M":3.51e-6, # in MJy, Ref Greenbaum+2023
                          "F300M":2.63e-6,
                          "F335M":2.10e-6,
@@ -51,18 +77,17 @@ if __name__ == "__main__":
                          "F430M":1.36e-6,
                          "F460M":1.12e-6}
 
-    photfilter = os.path.join(external_dir,"JWST_NIRCam."+photfilter_name+".dat")
-    filter_arr = np.loadtxt(photfilter)
-    trans_wvs = filter_arr[:,0]/1e4
-    trans = filter_arr[:,1]
-    photfilter_f = interp1d(trans_wvs,trans,bounds_error=False,fill_value=0)
-    photfilter_wv0 = np.nansum(trans_wvs*photfilter_f(trans_wvs))/np.nansum(photfilter_f(trans_wvs))
-    bandpass = np.where(photfilter_f(trans_wvs)/np.nanmax(photfilter_f(trans_wvs))>0.01)
-    photfilter_wvmin,photfilter_wvmax = trans_wvs[bandpass[0][0]],trans_wvs[bandpass[0][-1]]
-    print(photfilter_wvmin,photfilter_wvmax)
+    # photfilter = os.path.join(external_dir,"JWST_NIRCam."+photfilter_name+".dat")
+    # filter_arr = np.loadtxt(photfilter)
+    # trans_wvs = filter_arr[:,0]/1e4
+    # trans = filter_arr[:,1]
+    # photfilter_f = interp1d(trans_wvs,trans,bounds_error=False,fill_value=0)
+    # photfilter_wv0 = np.nansum(trans_wvs*photfilter_f(trans_wvs))/np.nansum(photfilter_f(trans_wvs))
+    # bandpass = np.where(photfilter_f(trans_wvs)/np.nanmax(photfilter_f(trans_wvs))>0.01)
+    # photfilter_wvmin,photfilter_wvmax = trans_wvs[bandpass[0][0]],trans_wvs[bandpass[0][-1]]
+    # print(photfilter_wvmin,photfilter_wvmax)
 
 
-    A0_filename = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/MAST_2023-04-23T0044/JWST/jw01128-o009_t007_nirspec_g395h-f290lp/jw01128-o009_t007_nirspec_g395h-f290lp_s3d.fits"
     hdulist_sc = fits.open(A0_filename)
     cube = hdulist_sc["SCI"].data
     im_psfprofile = np.nanmedian(cube,axis=0)
@@ -76,14 +101,14 @@ if __name__ == "__main__":
 
     outoftheoven_filelist = []
     for filename in filelist:
+        if detector not in filename:
+            continue
         print(os.path.join(out_dir,"*_"+os.path.basename(filename).replace(".fits","_out.fits")))
         tmp_filelist = glob(os.path.join(out_dir,"*_"+os.path.basename(filename).replace(".fits","_out.fits")))
         tmp_filelist.sort()
         if len(tmp_filelist) == 0:
             continue
         outoftheoven_filelist.append(tmp_filelist[-1])
-
-    fontsize = 12
 
     N_files = len(outoftheoven_filelist)
     fluxmap_list = []

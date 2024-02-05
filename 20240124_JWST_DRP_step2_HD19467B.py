@@ -9,8 +9,8 @@ if __name__ == "__main__":
     print('JWST pipeline version',jwst.__version__)
 
     # targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/"
-    # targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD18511_post/"
-    targetdir = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/"
+    targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD18511_post/"
+    # targetdir = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/"
     # det1_dir = os.path.join(targetdir,"20240124_stage1") # Detector1 pipeline outputs will go here
     # spec2_dir = os.path.join(targetdir,"20240124_stage2") # Spec2 pipeline outputs will go here
     det1_dir = os.path.join(targetdir,"20240124_stage1_clean") # Detector1 pipeline outputs will go here
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     time0 = time.perf_counter()
     print(time0)
 
-    for fid,rate_file in enumerate(rate_files[0::]):
+    for fid,rate_file in enumerate(rate_files):
         print(fid,rate_file)
 
         # Start a timer to keep track of runtime

@@ -25,68 +25,74 @@ if __name__ == "__main__":
         mkl.set_num_threads(1)
     except:
         pass
+
+    ####################
+    ## To be modified
+    ####################
+    # Number of threads to be used for multithreading
+    numthreads = 20
+    # Number of nodes
+    nodes = 40
+    # Number of principal components (Karhunen-Loeve) modes to be added to the forward model
+    N_KL = 3#0#3
+    # Directories to update
     os.environ["WEBBPSF_PATH"] = "/stow/jruffio/data/webbPSF/webbpsf-data"
     crds_dir="/stow/jruffio/data/JWST/crds_cache/"
-
-    numthreads = 20
-    N_KL = 3#0#3
-
-    # RA Dec offset of the companion
-    ra_offset = -1332.871/1000. # ra offset in as
-    dec_offset = -875.528/1000. # dec offset in as
-    # ra_offset = -1.38 # ra offset in as
-    # dec_offset = -0.92 # dec offset in as
-    # Offsets for HD 19467 B
-    # RA Offset = -1332.871 +/- 10.886 mas
-    # Dec Offset = -875.528 +/- 12.360 mas
-    # Separation = 1593.703 +/- 9.530 mas
-    # PA = 236.712 +/- 0.483 deg
-    # Reference: Brandt et al. 2021
-
-    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240127_out/xy/"
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    utils_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240127_utils/"
-    if not os.path.exists(utils_dir):
-        os.makedirs(utils_dir)
+    # External_dir should external files like the NIRCam filters
     external_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/external/"
-
-    # Choose to reduce either detector (NRS1 or NRS2)
-    detector,photfilter_name,wv_sampling = "nrs1", "F360M", np.arange(2.859509, 4.1012874, 0.0006763935)
-    # detector,photfilter_name,wv_sampling= "nrs2", "F460M",np.arange(4.081285,5.278689,0.0006656647)
-
-    # Definition of the nodes for the spline
-    if detector == "nrs1":
-        dw1,dw2 = 0.02,0.04
-        l0,l2 = 2.859509-dw1, 4.1012874
-        l1 = (l0+l2)/2
-        x1_nodes = np.arange(l0,l1, dw1)
-        l1 = x1_nodes[-1]+dw2
-        x2_nodes = np.arange(l1,l2, dw2)
-        x_nodes = np.concatenate([x1_nodes,x2_nodes])
-    elif detector == "nrs2":
-        dw1,dw2 = 0.04,0.02
-        l0,l2 = 4.081285,5.278689+dw2
-        l1 = (l0+l2)/2
-        x1_nodes = np.arange(l0,l1, dw1)
-        l1 = x1_nodes[-1]+dw2
-        x2_nodes = np.arange(l1,l2, dw2)
-        x_nodes = np.concatenate([x1_nodes,x2_nodes])
-    print(x_nodes)
-    print(np.size(x_nodes))
-    # exit()
-
-    filelist = glob("/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/20240124_stage2_clean/jw01414004001_02101_*_"+detector+"_cal.fits")
-    #"/stow/jruffio/data/JWST/nirspec/HD_19467/20240125_MAST_1414/MAST_2024-01-25T1449/JWST/jw01414001001_02101_00001_nrs2/jw01414001001_02101_00001_nrs2_cal.fits"
-    # filelist = glob("/stow/jruffio/data/JWST/nirspec/HD_19467/20240125_MAST_1414/MAST_2024-01-25T1449/JWST/jw01414004001_02101_000*_"+detector+"/jw01414004001_02101_*_"+detector+"_cal.fits")
-    # filelist = glob("/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/stage2/jw01414004001_02101_*_"+detector+"_cal.fits")
+    # Science data: List of stage 2 cal.fits files
+    filelist = glob("/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/20240124_stage2_clean/jw01414004001_02101_*_nrs*_cal.fits")
     filelist.sort()
-    print("I found the following files:")
-    for fid,filename in enumerate(filelist):
+    for filename in filelist:
         print(filename)
     print("N files: {0}".format(len(filelist)))
-
-    # Define
+    # utility folder where the intermediate and final data product will be saved
+    utils_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_utils_fm/"
+    if not os.path.exists(utils_dir):
+        os.makedirs(utils_dir)
+    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_out_fm/xy/"
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    ####################
+    ## No need to change for HD19467B prog. id 1414
+    # NIrcam filter used for flux normalization
+    photfilter_name_nrs1 =  "F360M"
+    photfilter_name_nrs2 =  "F460M"
+    # Definition of the wavelength sampling on which the detector images are interpolated (for each detector)
+    wv_sampling_nrs1 = np.arange(2.859509, 4.1012874, 0.0006763935)
+    wv_sampling_nrs2 = np.arange(4.081285, 5.278689, 0.0006656647)
+    # definiton of the nodes for the spline
+    x_nodes_nrs1 = np.linspace(2.859509, 4.1012874, nodes, endpoint=True)
+    x_nodes_nrs2 = np.linspace(4.081285, 5.278689, nodes, endpoint=True)
+    # if 1: # Different attempt at define the nodes
+    #     dw1,dw2 = 0.02,0.04
+    #     l0,l2 = 2.859509-dw1, 4.1012874
+    #     l1 = (l0+l2)/2
+    #     x1_nodes = np.arange(l0,l1, dw1)
+    #     l1 = x1_nodes[-1]+dw2
+    #     x2_nodes = np.arange(l1,l2, dw2)
+    #     x_nodes_nrs1 = np.concatenate([x1_nodes,x2_nodes])
+    # if 1:
+    #     dw1,dw2 = 0.04,0.02
+    #     l0,l2 = 4.081285,5.278689+dw2
+    #     l1 = (l0+l2)/2
+    #     x1_nodes = np.arange(l0,l1, dw1)
+    #     l1 = x1_nodes[-1]+dw2
+    #     x2_nodes = np.arange(l1,l2, dw2)
+    #     x_nodes_nrs2 = np.concatenate([x1_nodes,x2_nodes])
+    # List of empirical offsets to correct the wcs coordinate system
+    centroid_nrs1 = [-0.13499443, -0.07202978]
+    centroid_nrs2 = [-0.12986898, -0.08441719]
+    # RA Dec offset of the companion HD19467B
+    ra_offset = -1332.871/1000. # ra offset in as
+    dec_offset = -875.528/1000. # dec offset in as
+        # Offsets for HD 19467 B from https://www.whereistheplanet.com/
+        # RA Offset = -1332.871 +/- 10.886 mas
+        # Dec Offset = -875.528 +/- 12.360 mas
+        # Separation = 1593.703 +/- 9.530 mas
+        # PA = 236.712 +/- 0.483 deg
+        # Reference: Brandt et al. 2021
+    # Absolute fluxes for the host star to be used in calculated flux ratios with the companion.
     HD19467_flux_MJy = {"F250M":3.51e-6, # in MJy, Ref Greenbaum+2023
                          "F300M":2.63e-6,
                          "F335M":2.10e-6,
@@ -94,43 +100,55 @@ if __name__ == "__main__":
                          "F410M":1.49e-6,
                          "F430M":1.36e-6,
                          "F460M":1.12e-6}
+    # Flux Calibration parameters
+    flux_calib_paras = -0.03864459,  1.09360589
+    ####################
 
-    try:
-        photfilter = os.path.join(external_dir,"JWST_NIRCam."+photfilter_name+".dat")
-        filter_arr = np.loadtxt(photfilter)
-    except:
-        photfilter = os.path.join(external_dir,"Keck_NIRC2."+photfilter_name+".dat")
-        filter_arr = np.loadtxt(photfilter)
-    trans_wvs = filter_arr[:,0]/1e4
-    trans = filter_arr[:,1]
-    photfilter_f = interp1d(trans_wvs,trans,bounds_error=False,fill_value=0)
-    photfilter_wv0 = np.nansum(trans_wvs*photfilter_f(trans_wvs))/np.nansum(photfilter_f(trans_wvs))
-    bandpass = np.where(photfilter_f(trans_wvs)/np.nanmax(photfilter_f(trans_wvs))>0.01)
-    photfilter_wvmin,photfilter_wvmax = trans_wvs[bandpass[0][0]],trans_wvs[bandpass[0][-1]]
-    print(photfilter_wvmin,photfilter_wvmax)
-    # exit()
-    # plt.plot(trans_wvs,trans)
-    # plt.show()
 
     mypool = mp.Pool(processes=numthreads)
 
-    preproc_task_list = []
-    preproc_task_list.append(["compute_med_filt_badpix", {"window_size": 50, "mad_threshold": 50}, True, True])
-    preproc_task_list.append(["compute_coordinates_arrays"])
-    preproc_task_list.append(["convert_MJy_per_sr_to_MJy"]) # old reduction, already in MJy
-    ra_corr,dec_corr = -0.1285876002234175, - 0.06997868615326872
-    preproc_task_list.append(["apply_coords_offset",{"coords_offset":(ra_corr,dec_corr)}]) #-0.11584366936455087, 0.07189009712128012
-    preproc_task_list.append(["compute_webbpsf_model",
-                              {"wv_sampling": wv_sampling, "image_mask": None, "pixelscale": 0.1, "oversample": 10,
-                               "parallelize": False, "mppool": mypool}, True, True])
-    # preproc_task_list.append(["compute_new_coords_from_webbPSFfit", {"IWA": 0.2, "OWA": 1.0}, True, True])
-    preproc_task_list.append(["compute_charge_bleeding_mask", {"threshold2mask": 0.15}])
-    preproc_task_list.append(["compute_starspectrum_contnorm", {"x_nodes": x_nodes, "mppool": mypool}, True, True])
-    preproc_task_list.append(["compute_starsubtraction",{"mppool":mypool},True,True])
-    preproc_task_list.append(["compute_interpdata_regwvs",{"wv_sampling":wv_sampling},True,True])
-
     for filename in filelist[0::]:
         print(filename)
+
+        if "nrs1" in filename:
+            continue
+            detector = "nrs1"
+            wv_sampling = wv_sampling_nrs1
+            photfilter_name = photfilter_name_nrs1
+            centroid = centroid_nrs1
+            x_nodes = x_nodes_nrs1
+        elif "nrs2" in filename:
+            detector = "nrs2"
+            wv_sampling = wv_sampling_nrs2
+            photfilter_name = photfilter_name_nrs2
+            centroid = centroid_nrs2
+            x_nodes = x_nodes_nrs2
+
+        try:
+            photfilter = os.path.join(external_dir, "JWST_NIRCam." + photfilter_name + ".dat")
+            filter_arr = np.loadtxt(photfilter)
+        except:
+            photfilter = os.path.join(external_dir, "Keck_NIRC2." + photfilter_name + ".dat")
+            filter_arr = np.loadtxt(photfilter)
+        trans_wvs = filter_arr[:, 0] / 1e4
+        trans = filter_arr[:, 1]
+        photfilter_f = interp1d(trans_wvs, trans, bounds_error=False, fill_value=0)
+        photfilter_wv0 = np.nansum(trans_wvs * photfilter_f(trans_wvs)) / np.nansum(photfilter_f(trans_wvs))
+        bandpass = np.where(photfilter_f(trans_wvs) / np.nanmax(photfilter_f(trans_wvs)) > 0.01)
+        photfilter_wvmin, photfilter_wvmax = trans_wvs[bandpass[0][0]], trans_wvs[bandpass[0][-1]]
+        print(photfilter_wvmin, photfilter_wvmax)
+
+        preproc_task_list = []
+        preproc_task_list.append(["compute_med_filt_badpix", {"window_size": 50, "mad_threshold": 50}, True, True])
+        preproc_task_list.append(["compute_coordinates_arrays"])
+        preproc_task_list.append(["convert_MJy_per_sr_to_MJy"])
+        preproc_task_list.append(["apply_coords_offset",{"coords_offset": centroid}])
+        preproc_task_list.append(["compute_quick_webbpsf_model", {"image_mask": None, "pixelscale": 0.1, "oversample": 10}, True, True])
+        # preproc_task_list.append(["compute_new_coords_from_webbPSFfit", {"IWA": 0.2, "OWA": 1.0}, True, True])
+        preproc_task_list.append(["compute_charge_bleeding_mask", {"threshold2mask": 0.15}])
+        preproc_task_list.append(["compute_starspectrum_contnorm", {"x_nodes": x_nodes, "mppool": mypool}, True, True])
+        preproc_task_list.append(["compute_starsubtraction", {"mppool": mypool}, True, True])
+        # preproc_task_list.append(["compute_interpdata_regwvs", {"wv_sampling": wv_sampling}, True, True])
 
         dataobj = JWSTNirspec_cal(filename, crds_dir=crds_dir, utils_dir=utils_dir,
                                   save_utils=True,load_utils=True,preproc_task_list=preproc_task_list)
@@ -164,13 +182,12 @@ if __name__ == "__main__":
             KLs_wvs_all,KLs_all = PCA_wvs_axis(wv4pca,im4pcs,n4pca,bp4pca,
                                np.nanmedian(dataobj.wavelengths)/(4*dataobj.R),N_KL=N_KL)
             wvs_KLs_f_list = []
-            # for k in range(KLs_left.shape[1]):
-            #     KL_f = interp1d(KLs_wvs_left,KLs_left[:,k], bounds_error=False, fill_value=0.0,kind="cubic")
-            #     wvs_KLs_f_list.append(KL_f)
-            if detector == "nrs1":
-                for k in range(KLs_right.shape[1]):
-                    KL_f = interp1d(KLs_wvs_right,KLs_right[:,k], bounds_error=False, fill_value=0.0,kind="cubic")
-                    wvs_KLs_f_list.append(KL_f)
+            for k in range(KLs_left.shape[1]):
+                KL_f = interp1d(KLs_wvs_left,KLs_left[:,k], bounds_error=False, fill_value=0.0,kind="cubic")
+                wvs_KLs_f_list.append(KL_f)
+            for k in range(KLs_right.shape[1]):
+                KL_f = interp1d(KLs_wvs_right,KLs_right[:,k], bounds_error=False, fill_value=0.0,kind="cubic")
+                wvs_KLs_f_list.append(KL_f)
             else:
                 wvs_KLs_f_list = None
         else:
@@ -190,28 +207,31 @@ if __name__ == "__main__":
         # # plt.legend()
         # plt.show()
 
-        if 1: # read and normalize model grid
+        if 1: # read and normalize companion template used in FM
             RDI_spec_filename = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20230626_utils/20230705_HD19467b_RDI_1dspectrum.fits"
             hdulist_sc = fits.open(RDI_spec_filename)
             grid_wvs = hdulist_sc[0].data
-            grid_specs = ((hdulist_sc[1].data[None,None,:]*u.MJy)*(const.c/(grid_wvs*u.um)**2)).to(u.W*u.m**-2/u.um).value
+            RDI_spec = ((hdulist_sc[1].data*u.MJy)*(const.c/(grid_wvs*u.um)**2)).to(u.W*u.m**-2/u.um).value
             err = hdulist_sc[2].data
+
+            # add flux calibration correction because we are fitting a pure WebbPSF model later, which comes with systematics
+            RDI_spec = RDI_spec/np.polyval(flux_calib_paras, grid_wvs)
 
             grid_dwvs = grid_wvs[1::]-grid_wvs[0:np.size(grid_wvs)-1]
             grid_dwvs = np.insert(grid_dwvs,0,grid_dwvs[0])
             filter_norm = np.nansum((grid_dwvs*u.um)*photfilter_f(grid_wvs))
-            Flambda = np.nansum((grid_dwvs*u.um)[None,None,:]*photfilter_f(grid_wvs)[None,None,:]*(grid_specs*u.W*u.m**-2/u.um),axis=2)/filter_norm
+            Flambda = np.nansum((grid_dwvs*u.um)*photfilter_f(grid_wvs)*(RDI_spec*u.W*u.m**-2/u.um))/filter_norm
             Fnu = Flambda*(photfilter_wv0*u.um)**2/const.c # from Flambda back to Fnu
-            grid_specs = grid_specs/Fnu[:,:,None].to(u.MJy).value
+            RDI_spec = RDI_spec/Fnu.to(u.MJy).value
 
             # The code expects a model grid but we have a single spectrum, so we are creating a dumb grid but fixing the parameters anyway...
-            grid_specs = np.tile(grid_specs,(2,2,1))
+            grid_specs = np.tile(RDI_spec[None,None,:],(2,2,1))
             # grid_specs[np.where(np.isnan(grid_specs))] = 0
             myinterpgrid = RegularGridInterpolator(([-1,1],[-1,1]),grid_specs,method="linear",bounds_error=False,fill_value=np.nan)
             teff,logg,vsini,rv,dra_comp,ddec_comp = 0.0,0.0,0.0,None,None,None
             fix_parameters = [teff,logg,vsini,rv,dra_comp,ddec_comp]
 
-        if 1: # Definition of the prior
+        if 1: # Definition of the priors
             subtracted_im,star_model,spline_paras,x_nodes = dataobj.reload_starsubtraction()
 
             wherenan = np.where(np.isnan(spline_paras))
@@ -234,8 +254,8 @@ if __name__ == "__main__":
         if 1:
             # fm_paras["fix_parameters"]= [None,None,None,sc_fib]
             print(ra_offset,dec_offset)
-            # nonlin_paras = [0.0,ra_offset,dec_offset] # x (pix),y (pix), rv (km/s)
-            nonlin_paras = [0, 0.4,-1.95] # x (pix),y (pix), rv (km/s)
+            nonlin_paras = [0.0,ra_offset,dec_offset] # x (pix),y (pix), rv (km/s)
+            # nonlin_paras = [0, 0.4,-1.95] # x (pix),y (pix), rv (km/s)
             # nonlin_paras = [0, -1.4, -1.4] # x (pix),y (pix), rv (km/s)
             # d is the data vector a the specified location
             # M is the linear component of the model. M is a function of the non linear parameters x,y,rv

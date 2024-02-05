@@ -60,6 +60,7 @@ if __name__ == "__main__":
 
     color_list = ["#ff9900","#006699", "#6600ff", "#006699", "#ff9900", "#6600ff"]
     out_png = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/figures"
+    external_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/external/"
 
     HD19467_flux_MJy = {"F250M":3.51e-6, # in MJy, Ref Greenbaum+2023
                          "F300M":2.63e-6,
@@ -88,8 +89,10 @@ if __name__ == "__main__":
     # plt.yscale("log")
     # plt.show()
 
+    #Download NIRCam filters from http://svo2.cab.inta-csic.es/theory/fps/index.php?mode=browse&gname=JWST&gname2=NIRCam&asttype=
+    # Select Data file: ascii
     for photfilter_name in HD19467B_Jens_flux_MJy.keys():
-        photfilter = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/external/JWST_NIRCam." + photfilter_name + ".dat"
+        photfilter = os.path.join(external_dir,"JWST_NIRCam."+photfilter_name+".dat")
         filter_arr = np.loadtxt(photfilter)
         trans_wvs = filter_arr[:, 0] / 1e4
         trans = filter_arr[:, 1]

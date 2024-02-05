@@ -17,9 +17,9 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Qt5Agg')
 
-# targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/"
+targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/"
 # targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD18511_post/"
-targetdir = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/"
+# targetdir = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/"
 
 
 det1_dir = os.path.join(targetdir,"20240124_stage1") # Detector1 pipeline outputs will go here
@@ -168,30 +168,6 @@ if 1:
             noise[where_zero_noise] = np.nan
             bad_pixels[where_zero_noise] = np.nan
 
-            # coords_filename = os.path.join(utils_dir, basename.replace("_rate.fits", "_cal_relcoords.fits"))
-            # print(coords_filename)
-            # print(glob(coords_filename))
-            # with fits.open(coords_filename) as hdulist:
-            #     wavelen_array = hdulist[0].data
-            #     dra_as_array = hdulist[1].data
-            #     ddec_as_array = hdulist[2].data
-            #     area2d = hdulist[3].data
-            # sep_im = np.sqrt(dra_as_array**2+ddec_as_array**2)
-            # for colid in range(im.shape[1]):
-            #     try:
-            #         rowcen = np.nanargmin(sep_im[:,colid])
-            #         assert sep_im[rowcen,colid] < 0.1
-            #     except:
-            #         rowcen = np.nanargmin(sep_im[:,1000])
-            #     bad_pixels[np.max([0,rowcen-60]):np.min([im.shape[0],rowcen+60]),colid] = np.nan
-
-            # plt.imshow(dra_as_array,origin="lower")
-            # plt.show()
-            # plt.imshow(bad_pixels,origin="lower")
-            # plt.show()
-            # cal_im_tmp = copy(cal_im)
-            # plt.imshow(cal_im_tmp,origin="lower")
-            # plt.show()
             if "nrs1" in rate_file:
                 for rowid in range(im.shape[0]):
                     finite_ids = np.where(np.isfinite(cal_im[rowid,0:450]))[0]
@@ -205,8 +181,6 @@ if 1:
                         id_to_mask = np.max(finite_ids)
                         bad_pixels[rowid,1550+id_to_mask::] = np.nan
             bad_pixels[np.where(np.abs(im)>5)] = np.nan
-            # plt.imshow(bad_pixels,origin="lower")
-            # plt.show()
 
             from breads.instruments.instrument import Instrument
             data = Instrument()
@@ -217,30 +191,6 @@ if 1:
                 data.data = copy(im[:,colid])
                 data.noise = copy(noise[:,colid])
                 data.bad_pixels = copy(bad_pixels[:,colid])
-
-                # nonlin_labels = ["center", "scale"]
-                # nonlin_paras_mins = np.array([0, 1])
-                # paras0 = np.array([112,10])
-                # nonlin_paras_maxs = np.array([200, 100])
-                # simplex_init_steps = (nonlin_paras_maxs - nonlin_paras_mins) / 5
-                # initial_simplex = np.concatenate([paras0[None, :], paras0[None, :] + np.diag(simplex_init_steps)], axis=0)
-                # def nonlin_lnprior_func(nonlin_paras):
-                #     for p, _min, _max in zip(nonlin_paras, nonlin_paras_mins, nonlin_paras_maxs):
-                #         if p > _max or p < _min:
-                #             return -np.inf
-                #     return 0
-                # from breads.fit import nlog_prob
-                # from scipy.optimize import minimize
-                # fm_paras = {"badpixfraction":0.75,"nodes":N_nodes,"fix_parameters": None,"regularization":"default","fit_diffus":True}
-                # res = minimize(nlog_prob, paras0, args=(data, fm_column_background, fm_paras, nonlin_lnprior_func),
-                #                method="nelder-mead",
-                #                options={"initial_simplex": initial_simplex,"xatol": np.inf, "fatol": 1e-2, "maxiter": 5e6,
-                #                         "disp": False})
-                # print("Best fit values:")
-                # print(nonlin_labels)
-                # print(res.x)
-                # nonlin_paras = res.x
-                # exit()
 
                 fm_paras = {"badpixfraction":0.99,"nodes":N_nodes,"fix_parameters": [],"regularization":"default","fit_diffus":False,"M_spline":M_spline}
                 # fm_paras = {"badpixfraction":0.99,"nodes":N_nodes,"fix_parameters": nonlin_paras,"regularization":"default","fit_diffus":True}
@@ -304,7 +254,6 @@ if 1:
         # Print out the time benchmark
         time1 = time.perf_counter()
         print(f"Runtime so far: {time1 - time0:0.4f} seconds")
-
 
         # exit()
 

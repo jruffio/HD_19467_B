@@ -35,12 +35,7 @@ if __name__ == "__main__":
     nodes = 40
     # Directories to update
     os.environ["WEBBPSF_PATH"] = "/stow/jruffio/data/webbPSF/webbpsf-data"
-    external_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/external/"
     crds_dir="/stow/jruffio/data/JWST/crds_cache/"
-    # utility folder where the intermediate and final data product will be saved
-    utils_dir = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/breads/20240127_utils_clean/"
-    if not os.path.exists(utils_dir):
-        os.makedirs(utils_dir)
     # Suffix to be added to the output filename that contained the extracted spectrum and centroid
     filename_suffix = "_webbpsf"
     # List of stage 2 cal.fits files to be extracted
@@ -49,6 +44,10 @@ if __name__ == "__main__":
     for filename in filelist:
         print(filename)
     print("N files: {0}".format(len(filelist)))
+    # utility folder where the intermediate and final data product will be saved
+    utils_dir = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/breads/20240127_utils_clean/"
+    if not os.path.exists(utils_dir):
+        os.makedirs(utils_dir)
     # Spectrum obtained privately from Brittany Miles for the same dataset, set to None if you don't have it
     ers_spectrum = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/external/20231009_Brittany_ERS_Spectra/A0_dithers_g140h-f100lp-g235h-f170lp-g395h-f290lp_x1d.fits"
     # ers_spectrum = None # skip it
@@ -64,7 +63,7 @@ if __name__ == "__main__":
     init_centroid_nrs1 = [-0.25973700664819993, 0.7535417070247359]
     init_centroid_nrs2 = [-0.2679950725373308, 0.7554649479920329]
     # Flux Calibration parameters
-    flux_calib_paras = -0.03745375, 1.08816133
+    flux_calib_paras = -0.03864459,  1.09360589
     ####################
 
     # Define a multiprocessing pool for multi-threading when needed below
@@ -82,24 +81,7 @@ if __name__ == "__main__":
                 init_centroid = init_centroid_nrs2
                 wv_sampling = wv_sampling_nrs2
 
-            # List of preprocessing steps to be applied to each cal.fits file
-            # It's possible to call each step directly as dataobj.compute_xyz(parameters,..) if you prefer.
-            # This is only for convenience.
-            preproc_task_list = []
-            preproc_task_list.append(["compute_med_filt_badpix", {"window_size": 50, "mad_threshold": 50}, True, True])
-            preproc_task_list.append(["compute_coordinates_arrays"])
-            preproc_task_list.append(["convert_MJy_per_sr_to_MJy"]) # old reduction, already in MJy
-            # preproc_task_list.append(["apply_coords_offset",{"coords_offset":(ra_corr,dec_corr)}]) #-0.11584366936455087, 0.07189009712128012
-            preproc_task_list.append(["compute_webbpsf_model",
-                                      {"wv_sampling": wv_sampling, "image_mask": None, "pixelscale": 0.1, "oversample": 10,
-                                       "parallelize": False, "mppool": mypool}, True, True])
-            # preproc_task_list.append(["compute_new_coords_from_webbPSFfit", {"IWA": 0.2, "OWA": 1.0}, True, True])
-            # preproc_task_list.append(["compute_charge_bleeding_mask", {"threshold2mask": 0.15}])
-            preproc_task_list.append(["compute_starspectrum_contnorm", {"mppool": mypool}, True, True])
-            preproc_task_list.append(["compute_starsubtraction",{"mppool":mypool},True,True])
-            preproc_task_list.append(["compute_interpdata_regwvs",{"wv_sampling":wv_sampling},True,True])
-
-            # Select only the files corresponding the correct detector
+            # Select only the files corresponding to the correct detector
             nrs_filelist = []
             for filename in filelist:
                 if detector in filename:
@@ -109,6 +91,31 @@ if __name__ == "__main__":
             # Definie the filename of the output file saved by fitpsf
             splitbasename = os.path.basename(nrs_filelist[0]).split("_")
             fitpsf_filename = os.path.join(utils_dir, splitbasename[0] + "_" + splitbasename[1] + "_" + splitbasename[3] + "_fitpsf" + filename_suffix + ".fits")
+
+            # Make sure the webbpsf is computed, otherwise takes a while to load if doing for every dataobj because big file
+            dataobj = JWSTNirspec_cal(nrs_filelist[0], crds_dir=crds_dir, utils_dir=utils_dir,save_utils=True, load_utils=True)
+            webbpsf_reload = dataobj.reload_webbpsf_model()
+            if webbpsf_reload is None:
+                dataobj.compute_webbpsf_model(wv_sampling=wv_sampling, image_mask=None, pixelscale=0.1, oversample=10,
+                                              parallelize=False, mppool=mypool)
+
+            # List of preprocessing steps to be applied to each cal.fits file
+            # It's possible to call each step directly as dataobj.compute_xyz(parameters,..) if you prefer.
+            # This is only for convenience.
+            preproc_task_list = []
+            preproc_task_list.append(["compute_med_filt_badpix", {"window_size": 50, "mad_threshold": 50}, True, True])
+            preproc_task_list.append(["compute_coordinates_arrays"])
+            preproc_task_list.append(["convert_MJy_per_sr_to_MJy"])  # old reduction, already in MJy
+            # preproc_task_list.append(["apply_coords_offset",{"coords_offset":(ra_corr,dec_corr)}]) #-0.11584366936455087, 0.07189009712128012
+            # preproc_task_list.append(["compute_webbpsf_model",
+            #                           {"wv_sampling": wv_sampling, "image_mask": None, "pixelscale": 0.1,
+            #                            "oversample": 10,
+            #                            "parallelize": False, "mppool": mypool}, True, True])
+            # preproc_task_list.append(["compute_new_coords_from_webbPSFfit", {"IWA": 0.2, "OWA": 1.0}, True, True])
+            # preproc_task_list.append(["compute_charge_bleeding_mask", {"threshold2mask": 0.15}])
+            preproc_task_list.append(["compute_starspectrum_contnorm", {"mppool": mypool}, True, True])
+            preproc_task_list.append(["compute_starsubtraction", {"mppool": mypool,"threshold_badpix": 50}, True, False])
+            preproc_task_list.append(["compute_interpdata_regwvs", {"wv_sampling": wv_sampling}, True, False])
 
             # Make a list of all the data objects to be given to fit psf
             dataobj_list = []
@@ -128,16 +135,18 @@ if __name__ == "__main__":
                 webbpsf_Y = hdulist[4].data
                 webbpsf_X = np.tile(webbpsf_X[None,:,:],(wepsfs.shape[0],1,1))
                 webbpsf_Y = np.tile(webbpsf_Y[None,:,:],(wepsfs.shape[0],1,1))
+                wpsf_pixelscale = wpsfs_header["PIXELSCL"]
+                wpsf_oversample = wpsfs_header["oversamp"]
 
             # Fit a model PSF (WebbPSF) to the combined point cloud of dataobj_list
             # Save output as fitpsf_filename
             ann_width = None
             padding = 0.0
             sector_area = None
-            fitpsf(dataobj_list,wepsfs,webbpsf_X,webbpsf_Y, out_filename=fitpsf_filename,load=False,IWA = 0.0,OWA = 0.5,
-                   mppool=mypool,init_centroid=init_centroid,run_init=False,ann_width=ann_width,padding=padding,
+            fitpsf(dataobj_list,wepsfs,webbpsf_X,webbpsf_Y, out_filename=fitpsf_filename,IWA = 0.0,OWA = 0.5,
+                   mppool=mypool,init_centroid=init_centroid,ann_width=ann_width,padding=padding,
                    sector_area=sector_area,RDI_folder_suffix=filename_suffix,rotate_psf=dataobj_list[0].east2V2_deg,
-                   flipx=True,psf_spaxel_area=dataobj_list[0].webbpsf_spaxel_area)
+                   flipx=True,psf_spaxel_area=(wpsf_pixelscale) ** 2)
 
     #################################
     # Make plots
