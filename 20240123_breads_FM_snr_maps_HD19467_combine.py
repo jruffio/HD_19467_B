@@ -17,22 +17,6 @@ if __name__ == "__main__":
         mkl.set_num_threads(1)
     except:
         pass
-    os.environ["WEBBPSF_PATH"] = "/stow/jruffio/data/webbPSF/webbpsf-data"
-
-    numthreads = 20
-
-    # RA Dec offset of the companion
-    ra_offset = -1.38  # ra offset in as
-    dec_offset = -0.92  # dec offset in as
-    # Reference: Brandt et al. 2021
-
-
-    external_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/external/"
-    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240127_out/xy/"
-    out_png = out_dir.replace("xy","figures")
-    if not os.path.exists(out_png):
-        os.makedirs(out_png)
-
 
     ####################
     ## To be modified
@@ -43,22 +27,26 @@ if __name__ == "__main__":
     os.environ["WEBBPSF_PATH"] = "/stow/jruffio/data/webbPSF/webbpsf-data"
     crds_dir="/stow/jruffio/data/JWST/crds_cache/"
     # External_dir should external files like the NIRCam filters
-    external_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/external/"
+    external_dir = "/stow/jruffio/data/JWST/external/"
     # Science data: List of stage 2 cal.fits files
     filelist = glob("/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/20240124_stage2_clean/jw01414004001_02101_*_nrs*_cal.fits")
     filelist.sort()
     for filename in filelist:
         print(filename)
     print("N files: {0}".format(len(filelist)))
-    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_out_fm/xy/"
-    out_png = out_dir.replace("xy","figures")
+    # out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_out_fm/xy/"
+    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/xy/"
+    # output dir for images
+    out_png = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/figures"
+    # out_png = out_dir.replace("xy","figures")
     if not os.path.exists(out_png):
         os.makedirs(out_png)
     # Path to a s3d cube to extract an empirical PSF profile
     A0_filename = "/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/MAST_2023-04-23T0044/JWST/jw01128-o009_t007_nirspec_g395h-f290lp/jw01128-o009_t007_nirspec_g395h-f290lp_s3d.fits"
+    # choose which detector to combine
+    detector,photfilter_name = "nrs1", "F360M"
+    # detector, photfilter_name = "nrs2", "F460M"
     ####################
-    # detector,photfilter_name = "nrs1", "F360M"
-    detector, photfilter_name = "nrs2", "F460M"
     # RA Dec offset of the companion HD19467B
     ra_offset = -1332.871/1000. # ra offset in as
     dec_offset = -875.528/1000. # dec offset in as
@@ -127,8 +115,9 @@ if __name__ == "__main__":
             linparas_err = np.array(hf.get("linparas_err"))
             print(ras.shape)
 
-        k,l,m = np.unravel_index(np.nanargmax(log_prob-log_prob_H0),log_prob.shape)
-        print("best fit parameters: rv={0},y={1},x={2}".format(rvs[k],ras[l],decs[m]) )
+        k = 0
+        # k,l,m = np.unravel_index(np.nanargmax(log_prob-log_prob_H0),log_prob.shape)
+        # print("best fit parameters: rv={0},y={1},x={2}".format(rvs[k],ras[l],decs[m]) )
         # print(np.nanmax(log_prob-log_prob_H0))
         # best_log_prob,best_log_prob_H0,_,_,_ = grid_search([[rvs[k]], [ras[l]], [decs[m]]], dataobj, fm_func, fm_paras, numthreads=None)
         # print(best_log_prob-best_log_prob_H0)
@@ -139,17 +128,35 @@ if __name__ == "__main__":
         log_prob_H0 = np.swapaxes(log_prob_H0, 1, 2)
         rchi2 = np.swapaxes(rchi2, 1, 2)
 
+        # plt.imshow(rchi2[0],origin="lower")
+        # plt.show()
+
         dra=ras[1]-ras[0]
         ddec=decs[1]-decs[0]
         ras_grid,decs_grid = np.meshgrid(ras,decs)
         rs_grid = np.sqrt(ras_grid**2+decs_grid**2)
 
+        fluxmap = linparas[k,:,:,0]
+        fluxmap_err = linparas_err[k,:,:,0]
+        snr_map = linparas[k,:,:,0]/linparas_err[k,:,:,0]
+
+        snr_map_masked = copy(snr_map)
+        rs_comp_grid = np.sqrt((ras_grid-ra_offset)**2+(decs_grid-dec_offset)**2)
+        nan_mask_boxsize=5
+        snr_map_masked[np.where(np.isnan(correlate2d(snr_map_masked,np.ones((nan_mask_boxsize,nan_mask_boxsize)),mode="same")))] = np.nan
+        snr_map_masked[np.where((rs_comp_grid < 0.4))] = np.nan
+
+        # snr_map /= np.nanstd(snr_map_masked)
+        # fluxmap_err *= np.nanstd(snr_map_masked)
+
+
+        fluxmap_list.append(fluxmap)
+        fluxerrmap_list.append(fluxmap_err)
+        snr_vals.append(snr_map_masked[np.where(np.isfinite(snr_map_masked))])
+
         plt.figure(1,figsize=(4*int(np.ceil(N_files/3.)),3*3))
         plt.subplot(3,int(np.ceil(N_files/3.)),fid+1)
         plt.title("{0} File {1}".format(detector,fid),fontsize=fontsize)
-        fluxmap_list.append(linparas[k,:,:,0])
-        fluxerrmap_list.append(linparas_err[k,:,:,0])
-        snr_map = linparas[k,:,:,0]/linparas_err[k,:,:,0]
         plt.imshow(snr_map,origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
         plt.clim([-2,5])
         cbar = plt.colorbar()
@@ -162,12 +169,6 @@ if __name__ == "__main__":
 
         plt.figure(2,figsize=(4*int(np.ceil(N_files/3.)),3*3))
         plt.subplot(3,int(np.ceil(N_files/3.)),fid+1)
-        snr_map_masked = copy(snr_map)
-        rs_comp_grid = np.sqrt((ras_grid-ra_offset)**2+(decs_grid-dec_offset)**2)
-        nan_mask_boxsize=5
-        snr_map_masked[np.where(np.isnan(correlate2d(snr_map_masked,np.ones((nan_mask_boxsize,nan_mask_boxsize)),mode="same")))] = np.nan
-        snr_map_masked[np.where((rs_comp_grid < 0.7))] = np.nan
-        snr_vals.append(snr_map_masked[np.where(np.isfinite(snr_map_masked))])
         hist, bins = np.histogram(snr_map_masked[np.where(np.isfinite(snr_map_masked))], bins=20 * 3,range=(-10, 10))
         bin_centers = (bins[1::] + bins[0:np.size(bins) - 1]) / 2.
         plt.plot(bin_centers, hist / (np.nansum(hist) * (bins[1] - bins[0])), label="snr map")
@@ -182,7 +183,7 @@ if __name__ == "__main__":
         plt.gca().tick_params(axis='x', labelsize=fontsize)
         plt.gca().tick_params(axis='y', labelsize=fontsize)
 
-        contrast_5sig  = 5*linparas_err[k,:,:,0]/HD19467_flux_MJy[photfilter_name]
+        contrast_5sig  = 5*fluxmap_err/HD19467_flux_MJy[photfilter_name]
         nan_mask_boxsize=2
         contrast_5sig[np.where(np.isnan(correlate2d(contrast_5sig,np.ones((nan_mask_boxsize,nan_mask_boxsize)),mode="same")))] = np.nan
 
@@ -274,12 +275,36 @@ if __name__ == "__main__":
     plt.savefig(out_filename)
     plt.savefig(out_filename.replace(".png",".pdf"))
 
+    snr_vals = np.concatenate(snr_vals)
+    print("np.nanstd(snr_vals)",np.nanstd(snr_vals))
+    scale_snr = np.nanstd(snr_vals)
+    snr_vals /= scale_snr
+
     fluxmap_arr = np.array(fluxmap_list)
     fluxerrmap_arr = np.array(fluxerrmap_list)
     fluxmap_combined = np.nansum(fluxmap_arr/fluxerrmap_arr**2,axis=0)/np.nansum(1/fluxerrmap_arr**2,axis=0)
     fluxerrmap_combined = 1/np.sqrt(np.nansum(1/fluxerrmap_arr**2,axis=0))
     snr_map_combined = fluxmap_combined/fluxerrmap_combined
     contrast_5sig_combined  = 5*fluxerrmap_combined/HD19467_flux_MJy[photfilter_name]
+
+    snr_map_combined_masked = copy(snr_map_combined)
+    rs_comp_grid = np.sqrt((ras_grid - ra_offset) ** 2 + (decs_grid - dec_offset) ** 2)
+    pl_k,pl_l = np.unravel_index(np.nanargmin(rs_comp_grid),rs_comp_grid.shape)
+    nan_mask_boxsize = 5
+    snr_map_combined_masked[np.where(np.isnan(correlate2d(snr_map_combined_masked, np.ones((nan_mask_boxsize, nan_mask_boxsize)), mode="same")))] = np.nan
+    snr_map_combined_masked[np.where((rs_comp_grid < 0.4))] = np.nan
+    scale_snr_combined = np.nanstd(snr_map_combined_masked)
+
+    print("scale_snr_combined,scale_snr",scale_snr_combined,scale_snr)
+    # snr_map_combined /= scale_snr_combined
+    # snr_map_combined_masked /= scale_snr_combined
+    # fluxerrmap_combined *= scale_snr_combined
+    snr_map_combined /= scale_snr
+    snr_map_combined_masked /= scale_snr
+    fluxerrmap_combined *= scale_snr
+    contrast_5sig_combined *= scale_snr
+
+    print("flux and error MJy",fluxmap_combined[pl_k,pl_l],fluxerrmap_combined[pl_k,pl_l])
 
     plt.figure(6,figsize=(12,4))
 
@@ -337,9 +362,12 @@ if __name__ == "__main__":
     plt.savefig(out_filename.replace(".png",".pdf"))
 
     plt.figure(7,figsize=(5,4))
-    hist, bins = np.histogram(np.concatenate(snr_vals), bins=20 * 3,range=(-10, 10))
+    hist, bins = np.histogram(snr_vals, bins=20 * 3,range=(-10, 10))
     bin_centers = (bins[1::] + bins[0:np.size(bins) - 1]) / 2.
+    hist_comb, bins_comb = np.histogram(snr_map_combined_masked, bins=20 * 3,range=(-10, 10))
+    bin_centers_comb = (bins_comb[1::] + bins_comb[0:np.size(bins_comb) - 1]) / 2.
     plt.plot(bin_centers, hist / (np.nansum(hist) * (bins[1] - bins[0])), label="snr map")
+    plt.plot(bin_centers_comb, hist_comb / (np.nansum(hist_comb) * (bins_comb[1] - bins_comb[0])), label="snr map combined")
     plt.plot(bin_centers, 1 / np.sqrt(2 * np.pi) * np.exp(-0.5 * (bin_centers - 0.0) ** 2), color="black",
              linestyle="--", label="Gaussian")
     plt.yscale("log")

@@ -29,6 +29,10 @@ if __name__ == "__main__":
     ####################
     ## To be modified
     ####################
+    # Use RDI PSF model as prior if True
+    FMRDI = True
+    # Directory containing the generated cal.fits file containing the best-fit PSF model from RDI
+    RDImodel_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_utils/RDI_model_refPSF1"
     # Number of threads to be used for multithreading
     numthreads = 20
     # Number of nodes
@@ -50,8 +54,9 @@ if __name__ == "__main__":
     utils_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_utils_fm/"
     if not os.path.exists(utils_dir):
         os.makedirs(utils_dir)
-    # out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_out_fm/xy/"
-    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/xy/"
+    # out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_FMRDI/"
+    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_FMRDI_local/"
+    # out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_looseFMRDI_local/"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     # spectrum to be used for the companion template
@@ -110,7 +115,7 @@ if __name__ == "__main__":
 
     mypool = mp.Pool(processes=numthreads)
 
-    for filename in filelist[0::]:
+    for filename in filelist:
         print(filename)
 
         if "nrs1" in filename:
@@ -211,30 +216,30 @@ if __name__ == "__main__":
         # # plt.legend()
         # plt.show()
 
-        if 1: # read and normalize companion template used in FM
-            hdulist_sc = fits.open(RDI_spec_filename)
-            grid_wvs = hdulist_sc[0].data
-            RDI_spec = ((hdulist_sc[1].data*u.MJy)*(const.c/(grid_wvs*u.um)**2)).to(u.W*u.m**-2/u.um).value
-            err = hdulist_sc[2].data
+        if 1: # read and normalize BTSettl model grid used in FM
+            minwv,maxwv= np.min(dataobj.wavelengths),np.max(dataobj.wavelengths)
+            with h5py.File(os.path.join(external_dir,"BT-Settlchris_0.5-6.0um_Teff500_1600_logg3.5_5.0_NIRSpec.hdf5"), 'r') as hf:
+                grid_specs = np.array(hf.get("spec"))
+                grid_temps = np.array(hf.get("temps"))
+                grid_loggs = np.array(hf.get("loggs"))
+                grid_wvs = np.array(hf.get("wvs"))
 
             # add flux calibration correction because we are fitting a pure WebbPSF model later, which comes with systematics
-            RDI_spec = RDI_spec/np.polyval(flux_calib_paras, grid_wvs)
+            grid_specs = grid_specs / np.polyval(flux_calib_paras, grid_wvs)[None,None,:]
 
             grid_dwvs = grid_wvs[1::]-grid_wvs[0:np.size(grid_wvs)-1]
             grid_dwvs = np.insert(grid_dwvs,0,grid_dwvs[0])
             filter_norm = np.nansum((grid_dwvs*u.um)*photfilter_f(grid_wvs))
-            Flambda = np.nansum((grid_dwvs*u.um)*photfilter_f(grid_wvs)*(RDI_spec*u.W*u.m**-2/u.um))/filter_norm
+            Flambda = np.nansum((grid_dwvs*u.um)[None,None,:]*photfilter_f(grid_wvs)[None,None,:]*(grid_specs*u.W*u.m**-2/u.um),axis=2)/filter_norm
             Fnu = Flambda*(photfilter_wv0*u.um)**2/const.c # from Flambda back to Fnu
-            RDI_spec = RDI_spec/Fnu.to(u.MJy).value
+            grid_specs = grid_specs/Fnu[:,:,None].to(u.MJy).value
 
-            # The code expects a model grid but we have a single spectrum, so we are creating a dumb grid but fixing the parameters anyway...
-            grid_specs = np.tile(RDI_spec[None,None,:],(2,2,1))
-            # grid_specs[np.where(np.isnan(grid_specs))] = 0
-            myinterpgrid = RegularGridInterpolator(([-1,1],[-1,1]),grid_specs,method="linear",bounds_error=False,fill_value=np.nan)
-            teff,logg,vsini,rv,dra_comp,ddec_comp = 0.0,0.0,0.0,None,None,None
+            myinterpgrid = RegularGridInterpolator((grid_temps,grid_loggs),grid_specs,method="linear",bounds_error=False,fill_value=np.nan)
+            teff,logg,vsini,rv,dra_comp,ddec_comp = None,None,0.0,6.953,ra_offset,dec_offset
             fix_parameters = [teff,logg,vsini,rv,dra_comp,ddec_comp]
 
-        if 1: # Definition of the priors
+        # Definition of the priors
+        if 1:
             subtracted_im,star_model,spline_paras,x_nodes = dataobj.reload_starsubtraction()
 
             wherenan = np.where(np.isnan(spline_paras))
@@ -248,6 +253,60 @@ if __name__ == "__main__":
                 # reg_std_map[wherenan] = np.tile(np.zeros(spline_paras.shape), (1, spline_paras.shape[1]))[wherenan]
                 reg_std_map = reg_std_map
                 reg_std_map = np.clip(reg_std_map, 1e-11, np.inf) # in MJy
+        if FMRDI:
+            RDImodel_filename = os.path.join(RDImodel_dir,os.path.basename(filename))
+            hdulist_sc = fits.open(RDImodel_filename)
+            RDImodel_im_MJy_per_sr = hdulist_sc["SCI"].data
+            RDImodel_im = dataobj.convert_MJy_per_sr_to_MJy(data_in_MJy_per_sr=RDImodel_im_MJy_per_sr)
+
+            # plt.figure(1)
+            # plt.subplot(1,3,1)
+            # # aspect = 1950. / (colmax - colmin + 1)
+            # plt.imshow(dataobj.data,origin="lower", aspect='auto')
+            # plt.ylim([0,1000])
+            # plt.clim([-1e-10,1e-10])
+            # plt.subplot(1,3,2)
+            # plt.imshow(RDImodel_im,origin="lower", aspect='auto')
+            # plt.ylim([0,1000])
+            # plt.clim([-1e-10,1e-10])
+            # plt.subplot(1,3,3)
+            # plt.imshow(dataobj.data-RDImodel_im,origin="lower", aspect='auto')
+            # plt.ylim([0,1000])
+            # plt.clim([-1e-10,1e-10])
+            #
+            dataobj.bad_pixels[np.where(RDImodel_im == 0)] = np.nan
+            from breads.instruments.jwstnirspec_cal import normalize_rows
+
+            threshold_badpix = 10
+            out_normalize_rows = normalize_rows(RDImodel_im, dataobj.wavelengths, noise=dataobj.noise, badpixs=dataobj.bad_pixels,
+                                               nodes=nodes,
+                                               star_model=dataobj.star_func(dataobj.wavelengths),
+                                               threshold=threshold_badpix, use_set_nans=False,
+                                               mypool=mypool,regularization=True,reg_mean_map=reg_mean_map,reg_std_map=reg_std_map)
+            DImodel_star_model, _, new_badpixs, subtracted_im, spline_paras0 = out_normalize_rows
+            out_normalize_rows = normalize_rows(RDImodel_im, dataobj.wavelengths, noise=dataobj.noise, badpixs=new_badpixs,
+                                               nodes=nodes,
+                                               star_model=dataobj.star_func(dataobj.wavelengths),
+                                               threshold=threshold_badpix, use_set_nans=False,
+                                               mypool=mypool,regularization=True,reg_mean_map=spline_paras0,reg_std_map=spline_paras0)
+            DImodel_star_model, _, new_badpixs, subtracted_im, spline_paras  = out_normalize_rows
+
+            # # This code can plot the histogram if the relative error of the RDI model
+            # # This is how you can handwave the justification for using "reg_std_map = reg_mean_map / 5" below
+            # plt.figure(2)
+            # relerr_map =(dataobj.data*dataobj.bad_pixels-RDImodel_im*new_badpixs)/np.abs(dataobj.data)
+            # hist, bins = np.histogram(relerr_map[np.where(np.isfinite(relerr_map))], bins=20*3, range=(-1, 1))
+            # bin_centers = (bins[1::]+bins[0:np.size(bins)-1])/2.
+            # plt.plot(bin_centers,hist/(np.nansum(hist)*(bins[1]-bins[0])),label="relerr_map")
+            # plt.yscale("log")
+            # plt.show()
+
+            wherenan = np.where(np.isnan(spline_paras))
+            reg_mean_map = copy(spline_paras)
+            reg_mean_map[wherenan] = np.tile(np.nanmedian(spline_paras, axis=1)[:, None], (1, spline_paras.shape[1]))[wherenan]
+            reg_std_map = reg_mean_map / 5
+            # reg_std_map = reg_mean_map
+            reg_std_map = np.clip(reg_std_map, 3e-12, np.inf)# in MJy
 
         from breads.fm.hc_atmgrid_splinefm_jwst_nirspec_cal import hc_atmgrid_splinefm_jwst_nirspec_cal
         fm_paras = {"atm_grid":myinterpgrid,"atm_grid_wvs":grid_wvs,"star_func":dataobj.star_func,
@@ -255,29 +314,14 @@ if __name__ == "__main__":
                     "wvs_KLs_f":wvs_KLs_f_list,"regularization":"user","reg_mean_map":reg_mean_map,"reg_std_map":reg_std_map}
         fm_func = hc_atmgrid_splinefm_jwst_nirspec_cal
 
-        if 0: #inject fake planet in reduction for contrast curve calibration
-            fm_paras_tmp = {"atm_grid":myinterpgrid,"atm_grid_wvs":grid_wvs,"star_func":dataobj.star_func,
-                            "radius_as":0.5,"badpixfraction":0.99,"nodes":x_nodes,"fix_parameters":fix_parameters,
-                            "Nrows_max":500}
-            nonlin_paras = [0, 0.5, -0.5]
-            d, M, s,extra_outputs = fm_func(nonlin_paras,dataobj,return_extra_outputs=True,**fm_paras_tmp)
-            where_finite = extra_outputs["where_trace_finite"]
-            if detector == "nrs1":
-                dataobj.data[where_finite] += 2*1.5e-12 * M[:,0]
-            elif detector == "nrs2":
-                # dataobj.data[where_finite] += 2*2e-12 * M[:,0]
-                dataobj.data[where_finite] += 100e-12 * M[:,0]
-
         # /!\ Optional but recommended
         # Test the forward model for a fixed value of the non linear parameter.
         # Make sure it does not crash and look the way you want
         if 0:
             # fm_paras["fix_parameters"]= [None,None,None,sc_fib]
             print(ra_offset,dec_offset)
-            nonlin_paras = [0.0,ra_offset,dec_offset] # rv (km/s), dra (arcsec),ddec (arcsec),
-            # nonlin_paras = [0, -0.9,-0.25] # rv (km/s), dra (arcsec),ddec (arcsec),
-            # nonlin_paras = [0, -1.4, -1.4] # rv (km/s), dra (arcsec),ddec (arcsec),
-            # nonlin_paras = [0, 0.5, -0.5]
+            nonlin_paras = [1100,4.5]
+            # nonlin_paras = [0,0]
             # d is the data vector a the specified location
             # M is the linear component of the model. M is a function of the non linear parameters x,y,rv
             # s is the vector of uncertainties corresponding to d
@@ -401,19 +445,15 @@ if __name__ == "__main__":
 
 
         if 1:
-            rvs = np.array([0])
-            # rvs = np.linspace(-4000,4000,21,endpoint=True)
-            # ra_offset,dec_offset = 0.5,-0.5
-            # ras = np.arange(ra_offset-0.0,ra_offset+0.6,0.1)
-            # decs = np.arange(dec_offset-0.0,dec_offset+0.6,0.1)
-            # ras = np.arange(0,2.5,0.1)
-            # decs = np.arange(-2.0,1.0,0.1)
-            # ras = np.arange(-2.5,2.5,0.1)
-            # decs = np.arange(-3.0,2.0,0.1)
-            ras = np.arange(-2.5,2.5,0.05)
-            decs = np.arange(-3.0,2.0,0.05)
-            # ras = np.arange(-2.0,-1.5,0.1)
-            # decs = np.array([0])
+            # Teff500_1600_logg3.5_5.0
+            # teffs = np.arange(700,1200.0001,5)
+            # loggs = np.arange(4.0,5.0001,0.01)
+            # teffs = np.arange(500,1600.0001,50)
+            # loggs = np.arange(3.5,5.0001,0.1)
+            # teffs = np.arange(500,1600.0001,100)
+            # loggs = np.arange(3.5,5.0001,0.25)
+            teffs = np.arange(900,1000.0001,1)
+            loggs = np.arange(4.9,5.0001,0.1)
             if 0:
                 import cProfile
                 import pstats
@@ -426,20 +466,19 @@ if __name__ == "__main__":
                 # Print the sorted profiling results
                 profiler.print_stats()
                 exit()
-            # log_prob,log_prob_H0,rchi2,linparas,linparas_err = grid_search([rvs,ras,decs],dataobj,fm_func,fm_paras,numthreads=None)
-            log_prob,log_prob_H0,rchi2,linparas,linparas_err = grid_search([rvs,ras,decs],dataobj,fm_func,fm_paras,numthreads=numthreads,computeH0=False)
+            log_prob,log_prob_H0,rchi2,linparas,linparas_err = grid_search([teffs,loggs],dataobj,fm_func,fm_paras,numthreads=numthreads,computeH0=False)
             N_linpara = linparas.shape[-1]
 
             import datetime
             now = datetime.datetime.now()
             formatted_datetime = now.strftime("%Y%m%d_%H%M%S")
 
+
             outoftheoven_filename = os.path.join(out_dir,formatted_datetime+"_"+os.path.basename(filename).replace(".fits","_out.fits"))
             print(outoftheoven_filename)
             with h5py.File(outoftheoven_filename, 'w') as hf:
-                hf.create_dataset("rvs", data=rvs)
-                hf.create_dataset("ras", data=ras)
-                hf.create_dataset("decs", data=decs)
+                hf.create_dataset("teffs", data=teffs)
+                hf.create_dataset("loggs", data=loggs)
                 hf.create_dataset("log_prob", data=log_prob)
                 hf.create_dataset("log_prob_H0", data=log_prob_H0)
                 hf.create_dataset("rchi2", data=rchi2)
@@ -453,9 +492,8 @@ if __name__ == "__main__":
             print(outoftheoven_filename)
             # outoftheoven_filename = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/out/20230417_231940_jw01414004001_02101_00001_nrs2_cal_out.fits"
             with h5py.File(outoftheoven_filename, 'r') as hf:
-                rvs = np.array(hf.get("rvs"))
-                ras = np.array(hf.get("ras"))
-                decs = np.array(hf.get("decs"))
+                teffs = np.array(hf.get("teffs"))
+                loggs = np.array(hf.get("loggs"))
                 log_prob = np.array(hf.get("log_prob"))
                 log_prob_H0 = np.array(hf.get("log_prob_H0"))
                 rchi2 = np.array(hf.get("rchi2"))
@@ -464,83 +502,58 @@ if __name__ == "__main__":
 
     mypool.close()
     mypool.join()
+    # exit()
 
-    k=0
-    # k,l,m = np.unravel_index(np.nanargmax(log_prob-log_prob_H0),log_prob.shape)
-    # print("best fit parameters: rv={0},y={1},x={2}".format(rvs[k],ras[l],decs[m]) )
-    # print(np.nanmax(log_prob-log_prob_H0))
-    # best_log_prob,best_log_prob_H0,_,_,_ = grid_search([[rvs[k]], [ras[l]], [decs[m]]], dataobj, fm_func, fm_paras, numthreads=None)
-    # print(best_log_prob-best_log_prob_H0)
+    print(linparas[:,:,0])
+    print(linparas_err[:,:,0])
+    print(log_prob)
+    k,l = np.unravel_index(np.nanargmax(log_prob),log_prob.shape)
+    print("best fit parameters: teff={0},logg={1}".format(teffs[k],loggs[l]) )
+    print(np.nanmax(log_prob))
+    best_log_prob,best_log_prob_H0,_,_,_ = grid_search([[teffs[k]], [loggs[l]]], dataobj, fm_func, fm_paras, numthreads=None)
+    print(best_log_prob)
 
-    linparas = np.swapaxes(linparas, 1, 2)
-    linparas_err = np.swapaxes(linparas_err, 1, 2)
-    log_prob = np.swapaxes(log_prob, 1, 2)
-    log_prob_H0 = np.swapaxes(log_prob_H0, 1, 2)
-    rchi2 = np.swapaxes(rchi2, 1, 2)
+    print(linparas.shape)
+    linparas = np.swapaxes(linparas, 0, 1)
+    linparas_err = np.swapaxes(linparas_err, 0, 1)
+    log_prob = np.swapaxes(log_prob, 0, 1)
+    log_prob_H0 = np.swapaxes(log_prob_H0, 0, 1)
+    rchi2 = np.swapaxes(rchi2, 0, 1)
 
-    dra=ras[1]-ras[0]
-    ddec=decs[1]-decs[0]
-    ras_grid,decs_grid = np.meshgrid(ras,decs)
-    rs_grid = np.sqrt(ras_grid**2+decs_grid**2)
-    print(ra_offset,dec_offset)
-    rs_comp_grid = np.sqrt((ras_grid-ra_offset)**2+(decs_grid-dec_offset)**2)
-    # plt.imshow(rs_comp_grid,origin="lower")
-    # plt.show()
+    dTeff=teffs[1]-teffs[0]
+    dlogg=loggs[1]-loggs[0]
+    Teff_grid,logg_grid = np.meshgrid(dTeff,dlogg)
 
     plt.figure(1)
     plt.subplot(1,3,1)
     plt.title("SNR map")
-    snr_map = linparas[k,:,:,0]/linparas_err[k,:,:,0]
-    # print("SNR std",np.nanmax(snr_map[np.where(rs_comp_grid>0.4)]))
-    print("SNR std",np.nanstd(snr_map[np.where((rs_comp_grid>0.7)*np.isfinite(snr_map))]))
-    plt.imshow(snr_map,origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
+    snr_map = linparas[:,:,0]/linparas_err[:,:,0]
+    aspect = (teffs[-1]+dTeff/2.-(teffs[0]-dTeff/2.))/(loggs[-1]+dlogg/2.-(loggs[0]-dlogg/2.))
+    plt.imshow(snr_map,origin="lower",extent=[teffs[0]-dTeff/2.,teffs[-1]+dTeff/2.,loggs[0]-dlogg/2.,loggs[-1]+dlogg/2.],aspect=aspect)
     plt.clim([-2,5])
     cbar = plt.colorbar()
     cbar.set_label("SNR")
     # plt.plot(out[:,0,0,2])
-    plt.xlabel("dRA (as)")
-    plt.ylabel("ddec (as)")
-
-    contrast_5sig  = 5*linparas_err[k,:,:,0]/HD19467_flux_MJy[photfilter_name]
-    print(HD19467_flux_MJy[photfilter_name])
-    nan_mask_boxsize=2
-    contrast_5sig[np.where(np.isnan(correlate2d(contrast_5sig,np.ones((nan_mask_boxsize,nan_mask_boxsize)),mode="same")))] = np.nan
+    plt.xlabel("Teff (K)")
+    plt.ylabel("log(g) ")
 
     plt.subplot(1,3,2)
     plt.title("Flux map")
-    plt.imshow(linparas[k,:,:,0],origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
+    plt.imshow(linparas[:,:,0],origin="lower",extent=[teffs[0]-dTeff/2.,teffs[-1]+dTeff/2.,loggs[0]-dlogg/2.,loggs[-1]+dlogg/2.],aspect=aspect)
     cbar = plt.colorbar()
     cbar.set_label("planet flux MJy")
-    plt.xlabel("dRA (as)")
-    plt.ylabel("ddec (as)")
+    plt.xlabel("Teff (K)")
+    plt.ylabel("log(g) ")
+
     plt.subplot(1,3,3)
     plt.title("5-$\sigma$ Sensitivity 2D {0}".format(photfilter_name))
-    plt.imshow(np.log10(contrast_5sig),origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
+    plt.imshow(log_prob- np.nanmax(log_prob),origin="lower",extent=[teffs[0]-dTeff/2.,teffs[-1]+dTeff/2.,loggs[0]-dlogg/2.,loggs[-1]+dlogg/2.],aspect=aspect)
     # plt.clim([0,100])
-    plt.xlabel("dRA (as)")
-    plt.ylabel("ddec (as)")
+    plt.xlabel("Teff (K)")
+    plt.ylabel("log(g) ")
     cbar = plt.colorbar()
-    cbar.set_label("5-$\sigma$ Flux ratio log10 ({0})".format(photfilter_name))
+    cbar.set_label("log(prob) ({0})".format(photfilter_name))
 
-    plt.figure(3)
-    plt.title("5-$\sigma$ Sensitivity 1D")
-    plt.scatter(rs_grid,contrast_5sig)
-    plt.yscale("log")
-    plt.xlabel("Separation (as)")
-    plt.ylabel("5-$\sigma$ Flux ratio ({0})".format(photfilter_name))
-
-    plt.figure(4)
-    snr_map_masked = copy(snr_map)
-    snr_map_masked[np.where((rs_comp_grid < 0.7))] = np.nan
-
-    # Create a histogram using the hist function from NumPy
-    hist, bins = np.histogram(snr_map_masked[np.where(np.isfinite(snr_map_masked))], bins=20*3, range=(-10, 10))#, bins=256, range=(0, 256)
-    bin_centers = (bins[1::]+bins[0:np.size(bins)-1])/2.
-    plt.plot(bin_centers,hist/(np.nansum(hist)*(bins[1]-bins[0])),label="snr map")
-    plt.plot(bin_centers,1/np.sqrt(2*np.pi)*np.exp(-0.5*(bin_centers-0.0)**2),color="black",linestyle="--",label="Gaussian")
-    plt.yscale("log")
-    plt.ylim([1e-4,1])
-    plt.legend()
     plt.show()
 
 

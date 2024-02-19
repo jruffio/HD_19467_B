@@ -49,19 +49,18 @@ if __name__ == "__main__":
         utils_ref1_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_utils_ref1/"
         if not os.path.exists(utils_ref1_dir):
             os.makedirs(utils_ref1_dir)
-    # Suffix that was added to the RDI output filename
+    # Suffix that was added to the RDI output filename in the 20240201_RDI_reference_star.py script
     filename_suffix = "_refPSF1"
-    # Output filenames
-    # Spatial dimensions defined by ra_vec, dec_vec (see below)
+    # Output filenames:
     # cube_filename_RDIsubsci is the RDI subtracted dataset
     cube_filename_RDIsubsci_suffix = "_cube_RDI_20240202"
     # cube_filename_sci is the original science PSF (no PSF subtraction)
     # This is used to measure the amount of starlight at each position
-    # cube_filename_sci_suffix = "_cube_sci_20240202
-    cube_filename_sci_suffix = None # Set to None to not process the unsubtracted science PSF
+    cube_filename_sci_suffix = "_cube_sci_20240202"
+    # cube_filename_sci_suffix = None # Set to None to not process the unsubtracted science PSF
     # cube_filename_ref is the reference PSF (no PSF subtraction)
-    # cube_filename_ref_suffix = "_cube_ref1_20240202"
-    cube_filename_ref_suffix = None # Set to None to not process the unsubtracted reference PSF
+    cube_filename_ref_suffix = "_cube_ref1_20240202"
+    # cube_filename_ref_suffix = None # Set to None to not process the unsubtracted reference PSF
     # Sampling of the wavelength directions:
     ra_vec = np.arange(-3,1.5,0.05)
     dec_vec = np.arange(-3,1.5,0.05)
@@ -144,8 +143,8 @@ if __name__ == "__main__":
     #################################
 
     # Looping over both NIRSpec detectors
-    # for detector in ["nrs2", "nrs1"]:
-    for detector in ["nrs2"]:
+    for detector in ["nrs1", "nrs2"]:
+    # for detector in ["nrs1"]:
         ## First, PREPROCESS THE SCIENCE sequence to get its point cloud
         if 1:
             # Select only the files corresponding the correct detector
@@ -199,13 +198,13 @@ if __name__ == "__main__":
                 webbpsf_X = np.tile(webbpsf_X[None, :, :], (wepsfs.shape[0], 1, 1))
                 webbpsf_Y = np.tile(webbpsf_Y[None, :, :], (wepsfs.shape[0], 1, 1))
 
-            flux_cube,fluxerr_cube,ra_grid, dec_grid = \
-                build_cube(dataobj0.wv_sampling,dataobj0.east2V2_deg, # wavelength sampling
-                           all_interp_ra, all_interp_dec, all_interp_flux_psfsub, all_interp_err, all_interp_badpix,N_dithers, # combined point cloud
-                           wepsfs, webbpsf_X, webbpsf_Y, # webbPSF model for flux extraction
-                           ra_vec, dec_vec, # spatial sampling of final cube
-                           out_filename=cube_filename_RDIsubsci,linear_interp=True,mppool=mypool,
-                           debug_init=debug_init,debug_end=debug_end)  # min max wavelength indices for partial extraction
+            # flux_cube,fluxerr_cube,ra_grid, dec_grid = \
+            #     build_cube(dataobj0.wv_sampling,dataobj0.east2V2_deg, # wavelength sampling
+            #                all_interp_ra, all_interp_dec, all_interp_flux_psfsub, all_interp_err, all_interp_badpix,N_dithers, # combined point cloud
+            #                wepsfs, webbpsf_X, webbpsf_Y, # webbPSF model for flux extraction
+            #                ra_vec, dec_vec, # spatial sampling of final cube
+            #                out_filename=cube_filename_RDIsubsci,linear_interp=True,mppool=mypool,
+            #                debug_init=debug_init,debug_end=debug_end)  # min max wavelength indices for partial extraction
 
 
             if cube_filename_sci_suffix is not None:

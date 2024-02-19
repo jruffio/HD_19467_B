@@ -1,0 +1,95 @@
+Description of the list of scripts used in Ruffio+2024 (https://ui.adsabs.harvard.edu/abs/2023arXiv231009902R/abstract).
+For a particular figure from the paper, look for a fig## in the script name.
+
+Relies on the breads package:
+https://github.com/jruffio/breads
+
+############
+Reducing JWST raw data:
+
+20240124_JWST_DRP_step1_HD19467B.py
+    Process *_uncal.fits NIRSpec IFU files into *_rate.fits using stage 1 JWST calibration pipeline.
+20240124_JWST_DRP_step2_HD19467B.py
+    Process *_rate.fits NIRSpec IFU files into flux calibration *_cal.fits using stage 2 JWST calibration pipeline.
+20240124_clean_rate_files_HD19467.py
+    Clean the vertical stripping (1/f noise) as well as the charge diffusion from a saturated star.
+    It does this with column-wise spline fitting of the background pixels.
+    Even though this script processes *_rate.fits files, it still requires the *_cal.fits to retrieve the detector mask
+    to identify where the IFU slices are.
+    As a result, please run both 20240124_JWST_DRP_step1_HD19467B.py and 20240124_JWST_DRP_step2_HD19467B.py first.
+
+############
+Simple spectral extraction and flux calibration
+
+20240129_fig8_fig9_spectral_extraction_A0_calibrator.py
+    Fit a model PSF from WebbPSF to the A0 standard star NIRSpec IFU data used for flux calibration of the instrument.
+    It extracts its spectrum and measure its centroid.
+    An output of this script is a couple polynomial parameters used in other scripts to calibrate the flux extraction.
+
+20240209_webbPSF_spectral_extraction_HD19467A.py
+    Extract the spectrum of a saturated star (HD19467) by fitting a PSF model (WebbPSF) to the point cloud.
+
+############
+RDI and companion spectral extraction
+
+20240201_RDI_reference_star.py
+    PSF subtraction using a reference star.
+    The script combines the point cloud of a science sequence (multiple dithers) and a the sequence of a reference star.
+    Then, it fits the reference star point cloud (centroid & scaling factor) to the science data and subtracts it.
+
+20240202_spectral_cubeish_extraction.py
+    Create a kind of spectral cube from a NIRSpec IFU dataset.
+    The flux is extracted from the combined point cloud by fitting a model PSF (WebbPSF) at each wavelength on a grid of
+    spatial positions. The output can be used to not only extract the spectrum of the companion, but also get the
+    spectra of the speckles around it to estimate errors.
+
+20240205_extract_spec_HD19467B.py
+    Extract and save the spectrum of HD19467B.
+
+20240202_spectral_cube_matched_filter.py
+    Perform a matched filter on the spectral cube (after RDI) made by 20240202_spectral_cubeish_extraction.py.
+    This is how the S/N map and contrast curve of RDI is derived in Ruffio+2024.
+
+20240205_fig3_summary_RDIspec.py
+    Plot the spectrum of HD19467B.
+
+############
+Forward modeling (FM) and detection maps
+
+20240123_breads_FM_snr_maps_HD19467.py
+    Make S/N, flux, and flux error maps using the detector forward model and the breads framework for linear models.
+    This is what is used to derive the FM contrast curve.
+
+20240123_breads_FM_snr_maps_HD19467_combine.py
+    Combine the outputs of 20240123_breads_FM_snr_maps_HD19467.py from multiple dithers for example.
+
+20240127_fig2_fig13_detections_plot.py
+    Plot the detection maps, contrast curves, and S/N histograms for FM and RDI.
+    This relies on the outputs of:
+        20240123_breads_FM_snr_maps_HD19467_combine.py (for FM)
+        20240202_spectral_cube_matched_filter.py (for RDI)
+
+20240123_breads_FM_contrast_curves_vs_teff_HD19467.py
+    Process the HD19467B dataset varying the effective temperature of a BT-settl model
+    Mostly identical to 20240123_breads_FM_snr_maps_HD19467.py otherwise.
+
+############
+Fitting a BTsettl grid with forward model + RDI priors
+
+20240123_breads_FM_tefflogggrid_HD19467.py
+    Fit a BTsettl grid using the forward model framework while including a RDI-based prior on the speckle intensity.
+    Very similar to 20240123_breads_FM_snr_maps_HD19467.py, but instead of varying the position of the companion, we
+    vary Teff and loggs. Most of the functions or identical otherwise.
+
+20240123_fig19_fig20_breads_FM_tefflogggrid_HD19467_plot.py
+    Plot the results of the BTsettl grid fit from 20240123_breads_FM_tefflogggrid_HD19467.py.
+
+############
+Miscellaneous
+
+20240210_fig5_regwvsinterp_plot.py
+    Create the figure illustrating the interpolation of the NIRSpec IFU detector images onto a regular wavelength
+    sampling.
+
+test_cov.py
+    Illustration of generating correlated gaussian noise from a covariance matrix.

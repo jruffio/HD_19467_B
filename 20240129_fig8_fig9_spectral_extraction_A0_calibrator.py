@@ -54,6 +54,8 @@ if __name__ == "__main__":
     # Reference spectrum for A0 standard star TYC 4433-1800-1
     # Download from https://archive.stsci.edu/hlsps/reference-atlases/cdbs/current_calspec/
     stis_spectrum = "/stow/jruffio/models/TYC_4433-1800-1/1808347_stiswfc_004.fits"
+    # output dir for images
+    out_png = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/figures"
     ####################
     ## No need to change for TYC_4433-1800-1 prog. id 1128
     # Definition of the wavelength sampling on which the detector images are interpolated (for each detector)
@@ -97,7 +99,7 @@ if __name__ == "__main__":
             webbpsf_reload = dataobj.reload_webbpsf_model()
             if webbpsf_reload is None:
                 dataobj.compute_webbpsf_model(wv_sampling=wv_sampling, image_mask=None, pixelscale=0.1, oversample=10,
-                                              parallelize=False, mppool=mypool)
+                                              parallelize=False, mppool=mypool,save_utils=True)
 
             # List of preprocessing steps to be applied to each cal.fits file
             # It's possible to call each step directly as dataobj.compute_xyz(parameters,..) if you prefer.
@@ -182,8 +184,6 @@ if __name__ == "__main__":
                 wpsf_angle_offset = hdulist[0].header["INIT_ANG"]
                 wpsf_ra_offset = hdulist[0].header["INIT_RA"]
                 wpsf_dec_offset = hdulist[0].header["INIT_DEC"]
-                all_interp_psfsub = hdulist[1].data
-                all_interp_psfmodel = hdulist[2].data
 
             color_list = ["#ff9900", "#006699", "#6600ff", "#006699", "#ff9900", "#6600ff"]
             print(bestfit_coords.shape)
@@ -322,7 +322,6 @@ if __name__ == "__main__":
         plt.tight_layout()
         # plt.show()
 
-        out_png = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/figures"
         plt.figure(1)
         out_filename = os.path.join(out_png, "photocalib.png")
         print("Saving " + out_filename)
