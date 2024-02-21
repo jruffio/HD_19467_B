@@ -24,6 +24,7 @@ targetdir = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/"
 
 det1_dir = os.path.join(targetdir,"20240124_stage1") # Detector1 pipeline outputs will go here
 clean_dir = os.path.join(targetdir,"20240124_stage1_clean") # Detector1 pipeline outputs will go here
+# clean_dir = os.path.join(targetdir,"20240220_stage1_clean_test2") # Detector1 pipeline outputs will go here
 
 # We need to check that the desired output directories exist, and if not create them
 if not os.path.exists(clean_dir):
@@ -131,6 +132,7 @@ if 1:
 
     for fid,rate_file in enumerate(rate_files[0::]):
         print(fid,rate_file)
+        # rate_file = "/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/jw01414004001_02101_00001_nrs1_rate.fits"
 
         basename = os.path.basename(rate_file)
         cal_filename = os.path.join(targetdir,"20240124_stage2/"+basename.replace("_rate.fits","_cal.fits"))

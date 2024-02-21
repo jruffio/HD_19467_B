@@ -159,6 +159,9 @@ if __name__ == "__main__":
         # plt.imshow(dataobj.area2d,origin="lower")
         # plt.colorbar()
         # plt.show()
+    #     plt.plot(wv_sampling,dataobj.star_func(wv_sampling))
+    # plt.show()
+    # if 1:
         from breads.instruments.jwstnirspec_cal import where_point_source
         where2mask = where_point_source(dataobj,(ra_offset,dec_offset),0.4)
         tmp_badpixels = copy(dataobj.bad_pixels)

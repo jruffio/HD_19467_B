@@ -336,6 +336,10 @@ if __name__ == "__main__":
             HD19467B_spec_Flambda = (HD19467B_spec * u.MJy * const.c / (HD19467B_wvs * u.um) ** 2).to(u.W * u.m ** -2 / u.um).value
             HD19467B_spec_err_Flambda = (HD19467B_spec_err * u.MJy * const.c / (HD19467B_wvs * u.um) ** 2).to(u.W * u.m ** -2 / u.um).value
             HD19467B_spec_errhpf_Flambda = (HD19467B_spec_errhpf * u.MJy * const.c / (HD19467B_wvs * u.um) ** 2).to(u.W * u.m ** -2 / u.um).value
+            # plt.figure(10)
+            # plt.plot(HD19467B_wvs,HD19467B_spec_Flambda/HD19467B_spec_err_Flambda)
+            # plt.ylabel("S/N per bin")
+            # plt.show()
             plt.text(0.01, 0.99, 'HD 19467 B', fontsize=fontsize, ha='left', va='top', color="black",transform=plt.gca().transAxes)
             plt.fill_between(HD19467B_wvs,-HD19467B_spec_err_Flambda,+HD19467B_spec_err_Flambda,color=color_list[1],alpha=0.5, lw=0,label="RDI error")
             plt.fill_between(HD19467B_wvs,-HD19467B_spec_errhpf_Flambda,+HD19467B_spec_errhpf_Flambda,color=color_list[0],alpha=1, lw=0,label="HPF error")
