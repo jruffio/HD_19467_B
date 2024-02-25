@@ -152,7 +152,7 @@ if __name__ == "__main__":
     plt.gca().invert_xaxis()
 
     plt.subplot(1, 3, 2)
-    plt.scatter(all_interp_ra[:, l0], all_interp_dec[:, l0]- new_centroid_med[1],
+    plt.scatter(all_interp_ra[:, l0], all_interp_dec[:, l0],
                 s=10 * all_interp_flux[:, l0] / np.nanmax(all_interp_flux[:, l0]), c=color_list[0])
     txt = plt.text(0.03, 0.99, "Point cloud (flux scaled) - $\lambda$={0} $\mu$m".format(wv0), fontsize=fontsize, ha='left',
                    va='top', transform=plt.gca().transAxes, color="black")
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     myinterpim = pointcloud_interp(ra_grid, dec_grid)
     plt.imshow(np.log10(myinterpim), interpolation="nearest", origin="lower", extent=myextent)
     # plt.clim([0,np.nanmax(myinterpim)/4.0])
-    txt = plt.text(0.03, 0.99, "log10(inteprolated flux) \n Centroid corrected \n $\lambda$={0} $\mu$m".format(wv0), fontsize=fontsize, ha='left',
+    txt = plt.text(0.03, 0.99, "log10(inteprolated flux) \nCentroid corrected \n$\lambda$={0} $\mu$m".format(wv0), fontsize=fontsize, ha='left',
                    va='top', transform=plt.gca().transAxes, color="black")
     txt.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='w')])
     for x in np.arange(-rad, rad, 0.1):
@@ -207,7 +207,6 @@ if __name__ == "__main__":
     plt.gca().tick_params(axis='y', labelsize=fontsize)
     plt.gca().invert_xaxis()
 
-    plt.tight_layout()
 
 
     plt.show()
