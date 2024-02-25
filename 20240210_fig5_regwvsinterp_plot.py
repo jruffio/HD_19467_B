@@ -110,7 +110,8 @@ if __name__ == "__main__":
     fontsize = 12
     plt.figure(1,figsize=(12,4))
     plt.subplot(1,3,1)
-    plt.imshow(dataobj.star_func(dataobj.wavelengths)*dataobj.bad_pixels,interpolation="nearest",origin="lower")
+    # plt.imshow(dataobj.star_func(dataobj.wavelengths)*dataobj.bad_pixels,interpolation="nearest",origin="lower")
+    plt.imshow(dataobj.star_func(dataobj.wavelengths),interpolation="nearest",origin="lower")
     # plt.gca().set_aspect('equal')
     plt.text(0.03, 0.99, "Original", fontsize=fontsize, ha='left', va='top', transform=plt.gca().transAxes)
     plt.clim([0.96,1.04])
@@ -123,7 +124,10 @@ if __name__ == "__main__":
     plt.subplot(1,3,2)
     dwv = wv_sampling[1]-wv_sampling[0]
     wv0 = 4.7
-    plt.imshow(dataobj.star_func(interp_wvs)*interp_badpix,interpolation="nearest",origin="lower",extent=[wv_sampling[0]-dwv/2.,wv_sampling[-1]+dwv/2,0-0.5,interp_wvs.shape[0]+0.5])
+    # plt.imshow(dataobj.star_func(interp_wvs)*interp_badpix,interpolation="nearest",origin="lower",extent=[wv_sampling[0]-dwv/2.,wv_sampling[-1]+dwv/2,0-0.5,interp_wvs.shape[0]+0.5])
+    tmp_im = dataobj.star_func(interp_wvs)
+    tmp_im[np.where(np.isnan(interp_area2d))] = np.nan
+    plt.imshow(tmp_im,interpolation="nearest",origin="lower",extent=[wv_sampling[0]-dwv/2.,wv_sampling[-1]+dwv/2,0-0.5,interp_wvs.shape[0]+0.5])
     plt.plot([wv0,wv0],[-0.5,interp_wvs.shape[0]+0.5],color=color_list[0],linestyle="--",linewidth=2)
     plt.gca().set_aspect((wv_sampling[-1]-wv_sampling[0])/interp_wvs.shape[0])
     plt.text(0.03, 0.99, "Interpolated", fontsize=fontsize, ha='left', va='top', transform=plt.gca().transAxes,color="black")
@@ -153,7 +157,7 @@ if __name__ == "__main__":
     plt.tight_layout()
     out_filename = os.path.join(out_png,"regwvsinterp.png")
     print("Saving " + out_filename)
-    # plt.savefig(out_filename,dpi=300)
-    # plt.savefig(out_filename.replace(".png",".pdf"))
+    plt.savefig(out_filename,dpi=300)
+    plt.savefig(out_filename.replace(".png",".pdf"))
 
     plt.show()

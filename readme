@@ -17,6 +17,8 @@ Reducing JWST raw data:
     Even though this script processes *_rate.fits files, it still requires the *_cal.fits to retrieve the detector mask
     to identify where the IFU slices are.
     As a result, please run both 20240124_JWST_DRP_step1_HD19467B.py and 20240124_JWST_DRP_step2_HD19467B.py first.
+20240124_figXX_clean_rate_files_HD19467_plot.py
+    Plot illustration of 20240124_clean_rate_files_HD19467.py
 
 ############
 Simple spectral extraction and flux calibration
@@ -54,7 +56,7 @@ RDI and companion spectral extraction
     Plot the spectrum of HD19467B.
 
 ############
-Forward modeling (FM) and detection maps
+Forward modeling (FM), detection maps, and contrast curves
 
 20240123_breads_FM_snr_maps_HD19467.py
     Make S/N, flux, and flux error maps using the detector forward model and the breads framework for linear models.
@@ -73,19 +75,35 @@ Forward modeling (FM) and detection maps
     Process the HD19467B dataset varying the effective temperature of a BT-settl model
     Mostly identical to 20240123_breads_FM_snr_maps_HD19467.py otherwise.
 
+20240123_figXX_breads_FM_injection_and_recovery_HD19467.py
+    Injection and recovery test for the companion flux estimation of the forward model.
+
 ############
-Fitting a BTsettl grid with forward model + RDI priors
+Characterization
+
+20240123_breads_FM_RV_HD19467.py
+    Fit for the RV of the companion
+
+20240123_figXX_breads_FM_RV_HD19467_plot.py
+    Plot fitted RV of the companion from 20240123_breads_FM_RV_HD19467.py
+
 
 20240123_breads_FM_tefflogggrid_HD19467.py
-    Fit a BTsettl grid using the forward model framework while including a RDI-based prior on the speckle intensity.
+    FM+RDI Characterization: Fit a BTsettl grid using the forward model framework while including a RDI-based prior on the speckle intensity.
     Very similar to 20240123_breads_FM_snr_maps_HD19467.py, but instead of varying the position of the companion, we
     vary Teff and loggs. Most of the functions or identical otherwise.
 
 20240123_fig19_fig20_breads_FM_tefflogggrid_HD19467_plot.py
     Plot the results of the BTsettl grid fit from 20240123_breads_FM_tefflogggrid_HD19467.py.
 
+20240223_FMRDI_plot.py
+    Plot FM+RDI figures
+
 ############
 Miscellaneous
+
+20240225_plot_point_cloud.py
+    Plot point cloud and show how to recenter it with a rough WebbPSF fit.
 
 20240210_fig5_regwvsinterp_plot.py
     Create the figure illustrating the interpolation of the NIRSpec IFU detector images onto a regular wavelength
@@ -93,3 +111,14 @@ Miscellaneous
 
 test_cov.py
     Illustration of generating correlated gaussian noise from a covariance matrix.
+
+20240222_NIRCam_contrast_plot.py
+    Plot contrast curves for HD 19467 B NIRCam dataset (new reduction by Jens Kammerer - SpaceKLIP)
+
+20240223_fig4_contnormspec_plot.py
+    Plot figure illustrating the continuum normalization of the starlight
+
+20240223_fig6_sampling_plot.py
+    Plot point cloud of 2 datasets
+
+

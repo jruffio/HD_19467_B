@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # Suffix to be added to the output filename that contained the extracted spectrum and centroid
     filename_suffix = "_webbpsf"
     # List of stage 2 cal.fits files to be extracted
-    filelist = glob("/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/20240124_stage2/jw01128009001_03108_*_nrs*_cal.fits")
+    filelist = glob("/stow/jruffio/data/JWST/nirspec/A0_TYC 4433-1800-1/20240124_stage2_clean/jw01128009001_03108_*_nrs*_cal.fits")
     filelist.sort()
     for filename in filelist:
         print(filename)
@@ -125,6 +125,7 @@ if __name__ == "__main__":
                 print(filename)
                 dataobj = JWSTNirspec_cal(filename, crds_dir=crds_dir, utils_dir=utils_dir,
                                           save_utils=True,load_utils=True,preproc_task_list=preproc_task_list)
+
                 dataobj_list.append(dataobj)
 
             #Loading webbpsf, which is what will be fitted to the combined point cloud of dataobj_list

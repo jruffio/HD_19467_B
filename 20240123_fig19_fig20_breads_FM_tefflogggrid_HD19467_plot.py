@@ -32,10 +32,12 @@ if __name__ == "__main__":
     ## To be modified
     ####################
     # directory where the teff/logg grid fits are saved: the outputs from breads.grid_search
-    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_FMRDI/"
+    # out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_FMRDI/"
     # directory where the fine sampling grid fits are saved (for error bar calculation)
-    out_dir_local = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_FMRDI_local/"
+    # out_dir_local = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_FMRDI_local/"
     # out_dir_local = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_looseFMRDI_local/"
+    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240225_out_fm/tefflogg_FMRDI/"
+    out_dir_local = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240225_out_fm/tefflogg_FMRDI_local/"
     ####################
     # for plotting
     fontsize = 12
@@ -109,6 +111,10 @@ if __name__ == "__main__":
                 teff_errp[detid,fid] = err_p
                 fluxMJy_bestfit[detid,fid] = linparas[l,k,0]
                 fluxMJy_err[detid,fid] = linparas_err[l,k,0]
+
+    #             plt.plot(teffs,np.exp(log_prob[l,:]- np.nanmax(log_prob[l,:])),label=detector+" {0}".format(fid))
+    # plt.legend()
+    # plt.show()
     # exit()
     # teff_bestfit[:,6] = np.nan
     # teff_errm[:,6] = np.nan

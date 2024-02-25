@@ -29,10 +29,6 @@ if __name__ == "__main__":
     ####################
     ## To be modified
     ####################
-    # Use RDI PSF model as prior if True
-    FMRDI = True
-    # Directory containing the generated cal.fits file containing the best-fit PSF model from RDI
-    RDImodel_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_utils/RDI_model_refPSF1"
     # Number of threads to be used for multithreading
     numthreads = 20
     # Number of nodes
@@ -54,15 +50,9 @@ if __name__ == "__main__":
     utils_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_utils_fm/"
     if not os.path.exists(utils_dir):
         os.makedirs(utils_dir)
-    # out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_FMRDI/"
-    # out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_FMRDI_local/"
-    # out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/tefflogg_looseFMRDI_local/"
-    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240225_out_fm/tefflogg_FMRDI_local/"
-    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240225_out_fm/tefflogg_FMRDI/"
+    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240225_out_fm/RVs/"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    # spectrum to be used for the companion template
-    RDI_spec_filename = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/figures/HD19467b_RDI_1dspectrum_MJy.fits"
     ####################
     ## No need to change for HD19467B prog. id 1414
     # NIrcam filter used for flux normalization
@@ -74,22 +64,6 @@ if __name__ == "__main__":
     # definiton of the nodes for the spline
     x_nodes_nrs1 = np.linspace(2.859509, 4.1012874, nodes, endpoint=True)
     x_nodes_nrs2 = np.linspace(4.081285, 5.278689, nodes, endpoint=True)
-    # if 1: # Different attempt at define the nodes
-    #     dw1,dw2 = 0.02,0.04
-    #     l0,l2 = 2.859509-dw1, 4.1012874
-    #     l1 = (l0+l2)/2
-    #     x1_nodes = np.arange(l0,l1, dw1)
-    #     l1 = x1_nodes[-1]+dw2
-    #     x2_nodes = np.arange(l1,l2, dw2)
-    #     x_nodes_nrs1 = np.concatenate([x1_nodes,x2_nodes])
-    # if 1:
-    #     dw1,dw2 = 0.04,0.02
-    #     l0,l2 = 4.081285,5.278689+dw2
-    #     l1 = (l0+l2)/2
-    #     x1_nodes = np.arange(l0,l1, dw1)
-    #     l1 = x1_nodes[-1]+dw2
-    #     x2_nodes = np.arange(l1,l2, dw2)
-    #     x_nodes_nrs2 = np.concatenate([x1_nodes,x2_nodes])
     # List of empirical offsets to correct the wcs coordinate system
     centroid_nrs1 = [-0.13499443, -0.07202978]
     centroid_nrs2 = [-0.12986898, -0.08441719]
@@ -102,14 +76,6 @@ if __name__ == "__main__":
         # Separation = 1593.703 +/- 9.530 mas
         # PA = 236.712 +/- 0.483 deg
         # Reference: Brandt et al. 2021
-    # Absolute fluxes for the host star to be used in calculated flux ratios with the companion.
-    HD19467_flux_MJy = {"F250M":3.51e-6, # in MJy, Ref Greenbaum+2023
-                         "F300M":2.63e-6,
-                         "F335M":2.10e-6,
-                         "F360M":1.82e-6,
-                         "F410M":1.49e-6,
-                         "F430M":1.36e-6,
-                         "F460M":1.12e-6}
     # Flux Calibration parameters
     flux_calib_paras = [-0.03864459,  1.09360589]
     ####################
@@ -117,7 +83,7 @@ if __name__ == "__main__":
 
     mypool = mp.Pool(processes=numthreads)
 
-    for filename in filelist[0:2]:
+    for filename in filelist:
         print(filename)
 
         if "nrs1" in filename:
@@ -237,32 +203,9 @@ if __name__ == "__main__":
             grid_specs = grid_specs/Fnu[:,:,None].to(u.MJy).value
 
             myinterpgrid = RegularGridInterpolator((grid_temps,grid_loggs),grid_specs,method="linear",bounds_error=False,fill_value=np.nan)
-            teff,logg,vsini,rv,dra_comp,ddec_comp = None,None,0.0,6.953,ra_offset,dec_offset
-            # teff,logg,vsini,rv,dra_comp,ddec_comp = 950,5.0,0.0,None,None,dec_offset
+            # teff,logg,vsini,rv,dra_comp,ddec_comp = None,None,0.0,6.953,ra_offset,dec_offset
+            teff,logg,vsini,rv,dra_comp,ddec_comp = 940,5.0,0.0,None,ra_offset,dec_offset
             fix_parameters = [teff,logg,vsini,rv,dra_comp,ddec_comp]
-        if 0:  # read and normalize model grid
-            RDI_spec_filename = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20230626_utils/20230705_HD19467b_RDI_1dspectrum.fits"
-            hdulist_sc = fits.open(RDI_spec_filename)
-            grid_wvs = hdulist_sc[0].data
-            grid_specs = ((hdulist_sc[1].data[None, None, :] * u.MJy) * (const.c / (grid_wvs * u.um) ** 2)).to(
-                u.W * u.m ** -2 / u.um).value
-            err = hdulist_sc[2].data
-
-            grid_dwvs = grid_wvs[1::] - grid_wvs[0:np.size(grid_wvs) - 1]
-            grid_dwvs = np.insert(grid_dwvs, 0, grid_dwvs[0])
-            filter_norm = np.nansum((grid_dwvs * u.um) * photfilter_f(grid_wvs))
-            Flambda = np.nansum((grid_dwvs * u.um)[None, None, :] * photfilter_f(grid_wvs)[None, None, :] * (
-                        grid_specs * u.W * u.m ** -2 / u.um), axis=2) / filter_norm
-            Fnu = Flambda * (photfilter_wv0 * u.um) ** 2 / const.c  # from Flambda back to Fnu
-            grid_specs = grid_specs / Fnu[:, :, None].to(u.MJy).value
-            grid_specs = np.tile(grid_specs, (2, 2, 1))
-            # grid_specs[np.where(np.isnan(grid_specs))] = 0
-            myinterpgrid = RegularGridInterpolator(([-1, 1], [-1, 1]), grid_specs, method="linear",
-                                                   bounds_error=False, fill_value=np.nan)
-            # teff, logg, vsini, rv, dra_comp, ddec_comp = None,None,0.0,6.953,ra_offset,dec_offset
-            teff, logg, vsini, rv, dra_comp, ddec_comp = 0,0,0.0,0.0,None,None,dec_offset
-            fix_parameters = [teff, logg, vsini, rv, dra_comp, ddec_comp]
-
         # Definition of the priors
         if 1:
             subtracted_im,star_model,spline_paras,x_nodes = dataobj.reload_starsubtraction()
@@ -278,60 +221,6 @@ if __name__ == "__main__":
                 # reg_std_map[wherenan] = np.tile(np.zeros(spline_paras.shape), (1, spline_paras.shape[1]))[wherenan]
                 reg_std_map = reg_std_map
                 reg_std_map = np.clip(reg_std_map, 1e-11, np.inf) # in MJy
-        if FMRDI:
-            RDImodel_filename = os.path.join(RDImodel_dir,os.path.basename(filename))
-            hdulist_sc = fits.open(RDImodel_filename)
-            RDImodel_im_MJy_per_sr = hdulist_sc["SCI"].data
-            RDImodel_im = dataobj.convert_MJy_per_sr_to_MJy(data_in_MJy_per_sr=RDImodel_im_MJy_per_sr)
-
-            # plt.figure(1)
-            # plt.subplot(1,3,1)
-            # # aspect = 1950. / (colmax - colmin + 1)
-            # plt.imshow(dataobj.data,origin="lower", aspect='auto')
-            # plt.ylim([0,1000])
-            # plt.clim([-1e-10,1e-10])
-            # plt.subplot(1,3,2)
-            # plt.imshow(RDImodel_im,origin="lower", aspect='auto')
-            # plt.ylim([0,1000])
-            # plt.clim([-1e-10,1e-10])
-            # plt.subplot(1,3,3)
-            # plt.imshow(dataobj.data-RDImodel_im,origin="lower", aspect='auto')
-            # plt.ylim([0,1000])
-            # plt.clim([-1e-10,1e-10])
-            #
-            dataobj.bad_pixels[np.where(RDImodel_im == 0)] = np.nan
-            from breads.instruments.jwstnirspec_cal import normalize_rows
-
-            threshold_badpix = 10
-            out_normalize_rows = normalize_rows(RDImodel_im, dataobj.wavelengths, noise=dataobj.noise, badpixs=dataobj.bad_pixels,
-                                               nodes=nodes,
-                                               star_model=dataobj.star_func(dataobj.wavelengths),
-                                               threshold=threshold_badpix, use_set_nans=False,
-                                               mypool=mypool,regularization=True,reg_mean_map=reg_mean_map,reg_std_map=reg_std_map)
-            DImodel_star_model, _, new_badpixs, subtracted_im, spline_paras0 = out_normalize_rows
-            out_normalize_rows = normalize_rows(RDImodel_im, dataobj.wavelengths, noise=dataobj.noise, badpixs=new_badpixs,
-                                               nodes=nodes,
-                                               star_model=dataobj.star_func(dataobj.wavelengths),
-                                               threshold=threshold_badpix, use_set_nans=False,
-                                               mypool=mypool,regularization=True,reg_mean_map=spline_paras0,reg_std_map=spline_paras0)
-            DImodel_star_model, _, new_badpixs, subtracted_im, spline_paras  = out_normalize_rows
-
-            # # This code can plot the histogram if the relative error of the RDI model
-            # # This is how you can handwave the justification for using "reg_std_map = reg_mean_map / 5" below
-            # plt.figure(2)
-            # relerr_map =(dataobj.data*dataobj.bad_pixels-RDImodel_im*new_badpixs)/np.abs(dataobj.data)
-            # hist, bins = np.histogram(relerr_map[np.where(np.isfinite(relerr_map))], bins=20*3, range=(-1, 1))
-            # bin_centers = (bins[1::]+bins[0:np.size(bins)-1])/2.
-            # plt.plot(bin_centers,hist/(np.nansum(hist)*(bins[1]-bins[0])),label="relerr_map")
-            # plt.yscale("log")
-            # plt.show()
-
-            wherenan = np.where(np.isnan(spline_paras))
-            reg_mean_map = copy(spline_paras)
-            reg_mean_map[wherenan] = np.tile(np.nanmedian(spline_paras, axis=1)[:, None], (1, spline_paras.shape[1]))[wherenan]
-            reg_std_map = reg_mean_map / 5
-            # reg_std_map = reg_mean_map
-            reg_std_map = np.clip(reg_std_map, 3e-12, np.inf)# in MJy
 
         from breads.fm.hc_atmgrid_splinefm_jwst_nirspec_cal import hc_atmgrid_splinefm_jwst_nirspec_cal
         fm_paras = {"atm_grid":myinterpgrid,"atm_grid_wvs":grid_wvs,"star_func":dataobj.star_func,
@@ -345,13 +234,7 @@ if __name__ == "__main__":
         # Test the forward model for a fixed value of the non linear parameter.
         # Make sure it does not crash and look the way you want
         if 0:
-            # fm_paras["fix_parameters"]= [None,None,None,sc_fib]
-            print(ra_offset,dec_offset)
-            # nonlin_paras = [940,5.0] #log_prob 1127480.5049638145
-            # nonlin_paras = [945,5.0] #log_prob 1127480.1629320867
-            # nonlin_paras = [950,5.0] #log_prob 1127480.6757852277
-            nonlin_paras = [6,ra_offset] #log_prob 1127480.6757852277
-            # nonlin_paras = [0,0]
+            nonlin_paras = [6]
             # d is the data vector a the specified location
             # M is the linear component of the model. M is a function of the non linear parameters x,y,rv
             # s is the vector of uncertainties corresponding to d
@@ -480,25 +363,8 @@ if __name__ == "__main__":
 
 
         if 1:
-            # Teff500_1600_logg3.5_5.0
-            # teffs = np.arange(700,1200.0001,5)
-            # loggs = np.arange(4.0,5.0001,0.01)
-            teffs = np.arange(500,1600.0001,50)
-            loggs = np.arange(3.5,5.0001,0.1)
-            # teffs = np.arange(500,1600.0001,100)
-            # loggs = np.arange(3.5,5.0001,0.25)
-            # if detector == "nrs1":
-            #     teffs = np.arange(945,955.0001,0.2)
-            #     # teffs = np.arange(930,970.0001,1)
-            # elif detector == "nrs2":
-            #     teffs = np.arange(915,917.0001,0.05)
-            #     # teffs = np.arange(910,940.0001,1)
-            # teffs = np.arange(900,1000.0001,1)
-            # loggs = np.arange(4.9,5.0001,0.1)
-            # teffs = np.arange(10,13.0001,0.1)
-            # teffs = np.arange(0,10.0001,0.5)
-            # loggs = np.array([ra_offset])
-            log_prob,log_prob_H0,rchi2,linparas,linparas_err = grid_search([teffs,loggs],dataobj,fm_func,fm_paras,numthreads=numthreads,computeH0=False,scale_noise=True)
+            rvs = np.arange(-20,20.0001,0.1)
+            log_prob,log_prob_H0,rchi2,linparas,linparas_err = grid_search([rvs],dataobj,fm_func,fm_paras,numthreads=numthreads,computeH0=False,scale_noise=True)
             N_linpara = linparas.shape[-1]
 
             import datetime
@@ -506,51 +372,39 @@ if __name__ == "__main__":
             formatted_datetime = now.strftime("%Y%m%d_%H%M%S")
 
 
-            outoftheoven_filename = os.path.join(out_dir,formatted_datetime+"_"+os.path.basename(filename).replace(".fits","_out.fits"))
+            outoftheoven_filename = os.path.join(out_dir,formatted_datetime+"_"+os.path.basename(filename).replace(".fits","_out.h5"))
             print(outoftheoven_filename)
             with h5py.File(outoftheoven_filename, 'w') as hf:
-                hf.create_dataset("teffs", data=teffs)
-                hf.create_dataset("loggs", data=loggs)
+                hf.create_dataset("rvs", data=rvs)
                 hf.create_dataset("log_prob", data=log_prob)
                 hf.create_dataset("log_prob_H0", data=log_prob_H0)
                 hf.create_dataset("rchi2", data=rchi2)
                 hf.create_dataset("linparas", data=linparas)
                 hf.create_dataset("linparas_err", data=linparas_err)
 
-            if 0:
-                k,l = np.unravel_index(np.nanargmax(log_prob),log_prob.shape)
-                print("best fit parameters: teff={0},logg={1}".format(teffs[k],loggs[l]) )
-                print(np.nanmax(log_prob))
-                # best_log_prob,best_log_prob_H0,_,_,_ = grid_search([[teffs[k]], [loggs[l]]], dataobj, fm_func, fm_paras, numthreads=None)
-                # print(best_log_prob)
-
-                print(linparas.shape)
-                linparas = np.swapaxes(linparas, 0, 1)
-                linparas_err = np.swapaxes(linparas_err, 0, 1)
-                log_prob = np.swapaxes(log_prob, 0, 1)
-                log_prob_H0 = np.swapaxes(log_prob_H0, 0, 1)
-                rchi2 = np.swapaxes(rchi2, 0, 1)
-
-                plt.plot(teffs,np.exp(log_prob[l,:]- np.nanmax(log_prob[l,:])),label=detector)
-                plt.show()
+            plt.plot(rvs,np.exp(log_prob- np.nanmax(log_prob)),label=detector)
+            # plt.show()
         else:
-            print(os.path.join(out_dir,"*_"+os.path.basename(filename).replace(".fits","_out.fits")))
-            outoftheoven_filelist = glob(os.path.join(out_dir,"*_"+os.path.basename(filename).replace(".fits","_out.fits")))
+            print(os.path.join(out_dir,"*_"+os.path.basename(filename).replace(".fits","_out.h5")))
+            outoftheoven_filelist = glob(os.path.join(out_dir,"*_"+os.path.basename(filename).replace(".fits","_out.h5")))
             outoftheoven_filelist.sort()
             outoftheoven_filename = outoftheoven_filelist[-1]
             print(outoftheoven_filename)
             # outoftheoven_filename = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/out/20230417_231940_jw01414004001_02101_00001_nrs2_cal_out.fits"
             with h5py.File(outoftheoven_filename, 'r') as hf:
-                teffs = np.array(hf.get("teffs"))
-                loggs = np.array(hf.get("loggs"))
+                rvs = np.array(hf.get("rvs"))
                 log_prob = np.array(hf.get("log_prob"))
                 log_prob_H0 = np.array(hf.get("log_prob_H0"))
                 rchi2 = np.array(hf.get("rchi2"))
                 linparas = np.array(hf.get("linparas"))
                 linparas_err = np.array(hf.get("linparas_err"))
+            plt.plot(rvs,np.exp(log_prob- np.nanmax(log_prob)),label=detector)
 
     mypool.close()
     mypool.join()
+
+    plt.xlabel("RV (km/s)")
+    plt.show()
     # exit()
 
     print(linparas[:,:,0])

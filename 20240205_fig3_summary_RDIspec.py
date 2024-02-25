@@ -174,11 +174,16 @@ if __name__ == "__main__":
             print(photfilter_name+" & "+\
                   "${0:.1f}\\pm{1:.1f}$".format(float(myheader["FLUX_JY"])*1e6,float(myheader["FLUX_JY_ERR"])*1e6)+" & "+\
                   "${0:.2f}\\pm{1:.2f}$".format(float(myheader["FLUX_SI"])*1e17,float(myheader["FLUX_SI_ERR"])*1e17)+" & "+\
-                  " {0:.2f} (10\\%)".format(0.1*float(myheader["FLUX_SI"])*1e17)+" & "+\
+                  " {0:.2f} (5\\%)".format(0.05*float(myheader["FLUX_SI"])*1e17)+" & "+\
                   "${0:.2f}\\pm{1:.2f}$".format(float(myheader["DELMAG"]),float(myheader["DELMAG_ERR"]))+" & "+\
                   "{0:.3f}".format(float(myheader["TP_CORONMSK"]))+" & "+\
                   "{0:.3f}".format(float(myheader["TP_COMSUBST"]))+\
                   "\\\\")
+
+        print("HD19467B_Jens_flux_MJy")
+        print(HD19467B_Jens_flux_MJy)
+        print("HD19467B_Jens_fluxerr_MJy")
+        print(HD19467B_Jens_fluxerr_MJy)
 
     # Read a BTsettl grid to get a model that will be used to fill the gap in the spectrum
     if 1:
@@ -282,8 +287,8 @@ if __name__ == "__main__":
             # print(photfilter_name, "{0}+-{1} MJy ({2:.1f}-{3:.1f}um)".format(Fnu_Mjy,Fnu_err_Mjy,photfilter_wvmin, photfilter_wvmax))
             # print(photfilter_name, "{0}+-{1} W/m2/um ({2:.1f}-{3:.1f}um)".format(Flambda_Wm2um,Flambda_err_Wm2um,photfilter_wvmin, photfilter_wvmax))
             mag = -2.5*np.log10(Fnu_Mjy/HD19467_flux_MJy[photfilter_name])
-            mag_max = -2.5*np.log10((Fnu_Mjy+Fnu_err_Mjy)/HD19467_flux_MJy[photfilter_name])
-            mag_min = -2.5*np.log10((Fnu_Mjy-Fnu_err_Mjy)/HD19467_flux_MJy[photfilter_name])
+            mag_min = -2.5*np.log10((Fnu_Mjy+Fnu_err_Mjy)/HD19467_flux_MJy[photfilter_name])
+            mag_max = -2.5*np.log10((Fnu_Mjy-Fnu_err_Mjy)/HD19467_flux_MJy[photfilter_name])
             # print(photfilter_name, "{0}+{1}-{2} W/m2/um".format(mag,mag_max-mag,mag-mag_min))
             HD19467B_NIRSpec_flux_MJy[photfilter_name] = Fnu_Mjy
             HD19467B_NIRSpec_fluxerr_MJy[photfilter_name] = Fnu_err_Mjy
@@ -296,7 +301,7 @@ if __name__ == "__main__":
                   "${0:.1f}\\pm{1:.1f}$".format(Fnu_Mjy*1e12,Fnu_err_Mjy*1e12)+" & "+\
                   "${0:.2f}\\pm{1:.2f}$".format(Flambda_Wm2um*1e17,Flambda_err_Wm2um*1e17)+" & "+\
                   " {0:.2f} (10\\%)".format(0.1*Flambda_Wm2um*1e17)+" & "+\
-                  "${0:.2f}^{1:.2f}_{1:.2f}$".format(mag,mag_max-mag,mag-mag_min)+" & "+\
+                  "${0:.2f}".format(mag)+"^{"+"+{0:.2f}".format(mag_max-mag)+"}_{"+"-{0:.2f}".format(mag-mag_min)+"}$"+" & "+\
                   "-"+" & "+\
                   "-"+\
                   "\\\\")
