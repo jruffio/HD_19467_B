@@ -221,6 +221,12 @@ if __name__ == "__main__":
         contrast_5sig_1D_outspike[k] = np.nanmin(contrast_5sig_combined[np.where(mask*(rs_grid>(sep-0.05))*(rs_grid<(sep+0.05)))])
     fm_r2comp_grid = np.sqrt((nrs1_RA_grid-ra_offset)**2+(nrs1_Dec_grid-dec_offset)**2)
 
+    kpl,lpl = np.unravel_index(np.argmin(fm_r2comp_grid),fm_r2comp_grid.shape)
+    print("HD19467B F360M flux MJy: ",np.nanmax(nrs1_flux[kpl-2:kpl+3,lpl-2:lpl+3]/F360M_to_F444W))
+    print("HD19467B F360M error MJy: ",np.nanmax(nrs1_fluxerr[kpl,lpl]/F360M_to_F444W))
+    print("HD19467B F460M flux MJy: ",np.nanmax(nrs2_flux[kpl-2:kpl+3,lpl-2:lpl+3]/F460M_to_F444W))
+    print("HD19467B F460M error MJy: ",np.nanmax(nrs2_fluxerr[kpl,lpl]/F460M_to_F444W))
+
 
     rdi_nrs2_flux_filename = os.path.join(out_png,"HD19467B_RDI_F460M_nrs2_flux.fits")
     with fits.open(rdi_nrs2_flux_filename) as hdulist:
@@ -518,7 +524,7 @@ if __name__ == "__main__":
         plt.yscale("log")
         plt.xlim([-5, 5])
         plt.ylim([1e-4, 1])
-        plt.xlabel("SNR",fontsize=fontsize)
+        plt.xlabel("S/N",fontsize=fontsize)
         plt.ylabel("PDF",fontsize=fontsize)
         plt.legend()
         plt.gca().tick_params(axis='x', labelsize=fontsize)
@@ -652,7 +658,7 @@ if __name__ == "__main__":
         plt.yscale("log")
         plt.xlim([-5, 5])
         plt.ylim([1e-4, 1])
-        plt.xlabel("SNR",fontsize=fontsize)
+        plt.xlabel("S/N",fontsize=fontsize)
         plt.ylabel("PDF",fontsize=fontsize)
         plt.legend()
         plt.gca().tick_params(axis='x', labelsize=fontsize)
@@ -710,7 +716,7 @@ if __name__ == "__main__":
         plt.scatter(rdi_rs_grid,rdi_contrast_5sig_combined,s=0.2,c=color_list[1],alpha=0.3)#,label="5$\sigma$ - RDI"
         plt.plot(rdi_contrast_5sig_1D_seps,rdi_contrast_5sig_1D_med,label="5$\sigma$ - RDI - Median",alpha=1,c=color_list[1],linestyle="-.")
         # plt.plot(rdi_contrast_5sig_1D_seps,rdi_contrast_5sig_1D_min,label="5$\sigma$ - RDI - Best",alpha=1,c=color_list[1],linestyle=":")
-        plt.plot(F444W_Carter_seps,F444W_Carter_cons*np.sqrt(1236/2100),alpha=1,c="black",linestyle="-.")#,label="NIRCam ADI+RDI"
+        plt.plot(F444W_Carter_seps,F444W_Carter_cons,alpha=1,c="black",linestyle="-.")#,label="NIRCam ADI+RDI"
         plt.text(1.2,4e-6, 'NIRCam Carter+2023', fontsize=fontsize, ha='left', va='center',color="black",rotation=-11)# \n 36-166 $\mu$Jy
         plt.fill_between([0,0.3],[10**(-10),10**(-10)],[1,1],color="grey",alpha=0.2)
 

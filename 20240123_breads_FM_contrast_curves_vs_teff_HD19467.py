@@ -29,10 +29,14 @@ if __name__ == "__main__":
     ####################
     ## To be modified
     ####################
+    teffs_list = [3000,2500,2000,1500,1000,500]
+    # teffs_list = [500,1000,1500]
+    # teffs_list = [ 1500,2000,2500,3000]
+    # teffs_list = [3000]
     # Number of threads to be used for multithreading
-    numthreads = 10
+    numthreads = 20
     # Number of nodes
-    nodes = 40
+    nodes = 60#40
     # Number of principal components (Karhunen-Loeve) modes to be added to the forward model
     N_KL = 3#0#3
     # Directories to update
@@ -47,10 +51,12 @@ if __name__ == "__main__":
         print(filename)
     print("N files: {0}".format(len(filelist)))
     # utility folder where the intermediate and final data product will be saved
-    utils_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_utils_fm/"
+    # utils_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_utils_fm/"
+    utils_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240311_utils_fm/"
     if not os.path.exists(utils_dir):
         os.makedirs(utils_dir)
-    out_dir0 = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/"
+    # out_dir0 = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/"
+    out_dir0 = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240311_out_fm/"
     # spectrum to be used for the companion template
     RDI_spec_filename = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/figures/HD19467b_RDI_1dspectrum_MJy.fits"
     ####################
@@ -107,7 +113,7 @@ if __name__ == "__main__":
 
     mypool = mp.Pool(processes=numthreads)
 
-    for myteff in [3000,2500,2000,1500,1000,500]:
+    for myteff in teffs_list:
         out_dir = os.path.join(out_dir0,"xy_{0}K/".format(myteff))
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
@@ -215,7 +221,7 @@ if __name__ == "__main__":
             if 1: # Read BT settl grid used in FM
                 # Define planet model grid from BTsettl
                 minwv, maxwv = np.min(dataobj.wavelengths), np.max(dataobj.wavelengths)
-                if myteff > 500 and myteff < 1600:
+                if myteff >= 500 and myteff < 1600:
                     grid_filename = os.path.join(external_dir,"BT-Settlchris_0.5-6.0um_Teff500_1600_logg3.5_5.0_NIRSpec.hdf5")
                 if myteff > 1500 and myteff <= 3000:
                     grid_filename = os.path.join(external_dir,"BT-Settlchris_0.5-6.0um_Teff1500_3000_logg3.5_5.5_NIRSpec.hdf5")
@@ -394,6 +400,8 @@ if __name__ == "__main__":
 
             if 1:
                 rvs = np.array([0])
+                # ras = np.arange(0,1,0.05)
+                # decs = np.arange(-0.75,0.25,0.05)
                 ras = np.arange(-2.5,2.5,0.05)
                 decs = np.arange(-3.0,2.0,0.05)
                 # log_prob,log_prob_H0,rchi2,linparas,linparas_err = grid_search([rvs,ras,decs],dataobj,fm_func,fm_paras,numthreads=None)
@@ -415,6 +423,7 @@ if __name__ == "__main__":
                     hf.create_dataset("rchi2", data=rchi2)
                     hf.create_dataset("linparas", data=linparas)
                     hf.create_dataset("linparas_err", data=linparas_err)
+                # exit()
             else:
                 print(os.path.join(out_dir,"*_"+os.path.basename(filename).replace(".fits","_out.fits")))
                 outoftheoven_filelist = glob(os.path.join(out_dir,"*_"+os.path.basename(filename).replace(".fits","_out.fits")))
@@ -432,83 +441,84 @@ if __name__ == "__main__":
                     linparas = np.array(hf.get("linparas"))
                     linparas_err = np.array(hf.get("linparas_err"))
 
+                mypool.close()
+                mypool.join()
+                k=0
+
+                linparas = np.swapaxes(linparas, 1, 2)
+                linparas_err = np.swapaxes(linparas_err, 1, 2)
+                log_prob = np.swapaxes(log_prob, 1, 2)
+                log_prob_H0 = np.swapaxes(log_prob_H0, 1, 2)
+                rchi2 = np.swapaxes(rchi2, 1, 2)
+
+                dra=ras[1]-ras[0]
+                ddec=decs[1]-decs[0]
+                ras_grid,decs_grid = np.meshgrid(ras,decs)
+                rs_grid = np.sqrt(ras_grid**2+decs_grid**2)
+                print(ra_offset,dec_offset)
+                rs_comp_grid = np.sqrt((ras_grid-ra_offset)**2+(decs_grid-dec_offset)**2)
+                # plt.imshow(rs_comp_grid,origin="lower")
+                # plt.show()
+
+                plt.figure(1)
+                plt.subplot(1,3,1)
+                plt.title("SNR map")
+                snr_map = linparas[k,:,:,0]/linparas_err[k,:,:,0]
+                # print("SNR std",np.nanmax(snr_map[np.where(rs_comp_grid>0.4)]))
+                print("SNR std",np.nanstd(snr_map[np.where((rs_comp_grid>0.7)*np.isfinite(snr_map))]))
+                plt.imshow(snr_map,origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
+                plt.clim([-2,5])
+                cbar = plt.colorbar()
+                cbar.set_label("SNR")
+                # plt.plot(out[:,0,0,2])
+                plt.xlabel("dRA (as)")
+                plt.ylabel("ddec (as)")
+
+                contrast_5sig  = 5*linparas_err[k,:,:,0]/HD19467_flux_MJy[photfilter_name]
+                print(HD19467_flux_MJy[photfilter_name])
+                nan_mask_boxsize=2
+                contrast_5sig[np.where(np.isnan(correlate2d(contrast_5sig,np.ones((nan_mask_boxsize,nan_mask_boxsize)),mode="same")))] = np.nan
+
+                plt.subplot(1,3,2)
+                plt.title("Flux map")
+                plt.imshow(linparas[k,:,:,0],origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
+                cbar = plt.colorbar()
+                cbar.set_label("planet flux MJy")
+                plt.xlabel("dRA (as)")
+                plt.ylabel("ddec (as)")
+                plt.subplot(1,3,3)
+                plt.title("5-$\sigma$ Sensitivity 2D {0}".format(photfilter_name))
+                plt.imshow(np.log10(contrast_5sig),origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
+                # plt.clim([0,100])
+                plt.xlabel("dRA (as)")
+                plt.ylabel("ddec (as)")
+                cbar = plt.colorbar()
+                cbar.set_label("5-$\sigma$ Flux ratio log10 ({0})".format(photfilter_name))
+
+                plt.figure(3)
+                plt.title("5-$\sigma$ Sensitivity 1D")
+                plt.scatter(rs_grid,contrast_5sig)
+                plt.yscale("log")
+                plt.xlabel("Separation (as)")
+                plt.ylabel("5-$\sigma$ Flux ratio ({0})".format(photfilter_name))
+
+                plt.figure(4)
+                snr_map_masked = copy(snr_map)
+                snr_map_masked[np.where((rs_comp_grid < 0.7))] = np.nan
+
+                # Create a histogram using the hist function from NumPy
+                hist, bins = np.histogram(snr_map_masked[np.where(np.isfinite(snr_map_masked))], bins=20*3, range=(-10, 10))#, bins=256, range=(0, 256)
+                bin_centers = (bins[1::]+bins[0:np.size(bins)-1])/2.
+                plt.plot(bin_centers,hist/(np.nansum(hist)*(bins[1]-bins[0])),label="snr map")
+                plt.plot(bin_centers,1/np.sqrt(2*np.pi)*np.exp(-0.5*(bin_centers-0.0)**2),color="black",linestyle="--",label="Gaussian")
+                plt.yscale("log")
+                plt.ylim([1e-4,1])
+                plt.legend()
+                plt.show()
+
+
     mypool.close()
     mypool.join()
-
-    k=0
-
-    linparas = np.swapaxes(linparas, 1, 2)
-    linparas_err = np.swapaxes(linparas_err, 1, 2)
-    log_prob = np.swapaxes(log_prob, 1, 2)
-    log_prob_H0 = np.swapaxes(log_prob_H0, 1, 2)
-    rchi2 = np.swapaxes(rchi2, 1, 2)
-
-    dra=ras[1]-ras[0]
-    ddec=decs[1]-decs[0]
-    ras_grid,decs_grid = np.meshgrid(ras,decs)
-    rs_grid = np.sqrt(ras_grid**2+decs_grid**2)
-    print(ra_offset,dec_offset)
-    rs_comp_grid = np.sqrt((ras_grid-ra_offset)**2+(decs_grid-dec_offset)**2)
-    # plt.imshow(rs_comp_grid,origin="lower")
-    # plt.show()
-
-    plt.figure(1)
-    plt.subplot(1,3,1)
-    plt.title("SNR map")
-    snr_map = linparas[k,:,:,0]/linparas_err[k,:,:,0]
-    # print("SNR std",np.nanmax(snr_map[np.where(rs_comp_grid>0.4)]))
-    print("SNR std",np.nanstd(snr_map[np.where((rs_comp_grid>0.7)*np.isfinite(snr_map))]))
-    plt.imshow(snr_map,origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
-    plt.clim([-2,5])
-    cbar = plt.colorbar()
-    cbar.set_label("SNR")
-    # plt.plot(out[:,0,0,2])
-    plt.xlabel("dRA (as)")
-    plt.ylabel("ddec (as)")
-
-    contrast_5sig  = 5*linparas_err[k,:,:,0]/HD19467_flux_MJy[photfilter_name]
-    print(HD19467_flux_MJy[photfilter_name])
-    nan_mask_boxsize=2
-    contrast_5sig[np.where(np.isnan(correlate2d(contrast_5sig,np.ones((nan_mask_boxsize,nan_mask_boxsize)),mode="same")))] = np.nan
-
-    plt.subplot(1,3,2)
-    plt.title("Flux map")
-    plt.imshow(linparas[k,:,:,0],origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
-    cbar = plt.colorbar()
-    cbar.set_label("planet flux MJy")
-    plt.xlabel("dRA (as)")
-    plt.ylabel("ddec (as)")
-    plt.subplot(1,3,3)
-    plt.title("5-$\sigma$ Sensitivity 2D {0}".format(photfilter_name))
-    plt.imshow(np.log10(contrast_5sig),origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
-    # plt.clim([0,100])
-    plt.xlabel("dRA (as)")
-    plt.ylabel("ddec (as)")
-    cbar = plt.colorbar()
-    cbar.set_label("5-$\sigma$ Flux ratio log10 ({0})".format(photfilter_name))
-
-    plt.figure(3)
-    plt.title("5-$\sigma$ Sensitivity 1D")
-    plt.scatter(rs_grid,contrast_5sig)
-    plt.yscale("log")
-    plt.xlabel("Separation (as)")
-    plt.ylabel("5-$\sigma$ Flux ratio ({0})".format(photfilter_name))
-
-    plt.figure(4)
-    snr_map_masked = copy(snr_map)
-    snr_map_masked[np.where((rs_comp_grid < 0.7))] = np.nan
-
-    # Create a histogram using the hist function from NumPy
-    hist, bins = np.histogram(snr_map_masked[np.where(np.isfinite(snr_map_masked))], bins=20*3, range=(-10, 10))#, bins=256, range=(0, 256)
-    bin_centers = (bins[1::]+bins[0:np.size(bins)-1])/2.
-    plt.plot(bin_centers,hist/(np.nansum(hist)*(bins[1]-bins[0])),label="snr map")
-    plt.plot(bin_centers,1/np.sqrt(2*np.pi)*np.exp(-0.5*(bin_centers-0.0)**2),color="black",linestyle="--",label="Gaussian")
-    plt.yscale("log")
-    plt.ylim([1e-4,1])
-    plt.legend()
-    plt.show()
-
-
 
 
     exit()

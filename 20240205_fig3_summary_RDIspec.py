@@ -300,7 +300,7 @@ if __name__ == "__main__":
             print(photfilter_name+" & "+\
                   "${0:.1f}\\pm{1:.1f}$".format(Fnu_Mjy*1e12,Fnu_err_Mjy*1e12)+" & "+\
                   "${0:.2f}\\pm{1:.2f}$".format(Flambda_Wm2um*1e17,Flambda_err_Wm2um*1e17)+" & "+\
-                  " {0:.2f} (10\\%)".format(0.1*Flambda_Wm2um*1e17)+" & "+\
+                  " {0:.2f} (5\\%)".format(0.05*Flambda_Wm2um*1e17)+" & "+\
                   "${0:.2f}".format(mag)+"^{"+"+{0:.2f}".format(mag_max-mag)+"}_{"+"-{0:.2f}".format(mag-mag_min)+"}$"+" & "+\
                   "-"+" & "+\
                   "-"+\
@@ -347,7 +347,7 @@ if __name__ == "__main__":
             # plt.show()
             plt.text(0.01, 0.99, 'HD 19467 B', fontsize=fontsize, ha='left', va='top', color="black",transform=plt.gca().transAxes)
             plt.fill_between(HD19467B_wvs,-HD19467B_spec_err_Flambda,+HD19467B_spec_err_Flambda,color=color_list[1],alpha=0.5, lw=0,label="RDI error")
-            plt.fill_between(HD19467B_wvs,-HD19467B_spec_errhpf_Flambda,+HD19467B_spec_errhpf_Flambda,color=color_list[0],alpha=1, lw=0,label="HPF error")
+            plt.fill_between(HD19467B_wvs,-HD19467B_spec_errhpf_Flambda,+HD19467B_spec_errhpf_Flambda,color=color_list[0],alpha=1, lw=0,label='"Small-scale" error')
             plt.plot(HD19467B_wvs,HD19467B_spec_Flambda,color=color_list[1],label="RDI spectrum",linewidth=1)
 
             if nrs_id == 0:

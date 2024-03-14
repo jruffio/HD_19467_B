@@ -278,7 +278,7 @@ if __name__ == "__main__":
     snr_vals = np.concatenate(snr_vals)
     print("np.nanstd(snr_vals)",np.nanstd(snr_vals))
     scale_snr = np.nanstd(snr_vals)
-    snr_vals /= scale_snr
+    # snr_vals /= scale_snr
 
     fluxmap_arr = np.array(fluxmap_list)
     fluxerrmap_arr = np.array(fluxerrmap_list)
@@ -296,13 +296,16 @@ if __name__ == "__main__":
     scale_snr_combined = np.nanstd(snr_map_combined_masked)
 
     print("scale_snr_combined,scale_snr",scale_snr_combined,scale_snr)
+
     # snr_map_combined /= scale_snr_combined
     # snr_map_combined_masked /= scale_snr_combined
     # fluxerrmap_combined *= scale_snr_combined
-    snr_map_combined /= scale_snr
-    snr_map_combined_masked /= scale_snr
-    fluxerrmap_combined *= scale_snr
-    contrast_5sig_combined *= scale_snr
+    # contrast_5sig_combined *= scale_snr_combined
+
+    # snr_map_combined /= scale_snr
+    # snr_map_combined_masked /= scale_snr
+    # fluxerrmap_combined *= scale_snr
+    # contrast_5sig_combined *= scale_snr
 
     print("flux and error MJy",fluxmap_combined[pl_k,pl_l],fluxerrmap_combined[pl_k,pl_l])
 

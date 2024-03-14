@@ -4,19 +4,56 @@ For a particular figure from the paper, look for a fig## in the script name.
 Relies on the breads package:
 https://github.com/jruffio/breads
 
+Installing breads for JWST on a Linux server using a conda environment (only tested on a single machine):
+conda create -n jwst python==3.11.0
+conda activate jwst
+pip install jwst==1.12.5
+pip install webbpsf==1.2.1
+pip install PyAstronomy==0.20.0
+pip install h5py==3.10.0
+pip install pandas==2.1.4
+pip install py==1.11.0
+pip install PyQt5
+
+############
+Data folder:
+
+HD19467b_RDI_1dspectrum_Flambda_modified.fits:
+    Spectrum of HD19467B
+
+    % For Loading the spectrum:
+    from astropy.io import fits
+    with fits.open("HD19467b_RDI_1dspectrum_Flambda_modified.fits") as hdulist:
+        wave = hdulist[0].data # microns
+        spec = hdulist[1].data # W/m2/um
+        err = hdulist[2].data # W/m2/um (Errors including large scale correlated noise)
+        err_hpf = hdulist[3].data # W/m2/um (Errors excluding large scale correlated noise)
+
+HD19467b_RDI_1dspectrum_speckles_Flambda_modified.fits:
+    Spectrum of the speckles around HD19467B in W/m2/um (0.4-0.5'' annulus around the companion)
+
+HD19467b_covariance.fits:
+    Covariance matrix for the spectrum of HD19467B
+
+model_Teff1400_wvs.npy,model_Teff1400_flux.npy:
+    Wavelength and example spectrum of a atmospheric model used in covariance_chi2_example.ipynb.
+
 ############
 Reducing JWST raw data:
 
 20240124_JWST_DRP_step1_HD19467B.py
     Process *_uncal.fits NIRSpec IFU files into *_rate.fits using stage 1 JWST calibration pipeline.
+
 20240124_JWST_DRP_step2_HD19467B.py
     Process *_rate.fits NIRSpec IFU files into flux calibration *_cal.fits using stage 2 JWST calibration pipeline.
+
 20240124_clean_rate_files_HD19467.py
     Clean the vertical stripping (1/f noise) as well as the charge diffusion from a saturated star.
     It does this with column-wise spline fitting of the background pixels.
     Even though this script processes *_rate.fits files, it still requires the *_cal.fits to retrieve the detector mask
     to identify where the IFU slices are.
     As a result, please run both 20240124_JWST_DRP_step1_HD19467B.py and 20240124_JWST_DRP_step2_HD19467B.py first.
+
 20240124_figXX_clean_rate_files_HD19467_plot.py
     Plot illustration of 20240124_clean_rate_files_HD19467.py
 
@@ -98,6 +135,15 @@ Characterization
 
 20240223_FMRDI_plot.py
     Plot FM+RDI figures
+
+############
+Covariance
+
+speckle_covariance_vf.ipynb
+    Compute and save the covariance for the 1D RDI spectrum of HD19467B.
+
+covariance_chi2_example.ipynb
+    Example for how to compute the chi2 WITH the covariance when fitting the spectrum of HD19467B.
 
 ############
 Miscellaneous

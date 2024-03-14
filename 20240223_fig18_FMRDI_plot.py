@@ -459,7 +459,7 @@ if __name__ == "__main__":
                 plt.text(0.01, 0.98, "Row {0}".format(_rowcut), fontsize=fontsize, ha='left', va='top', transform=plt.gca().transAxes,color="black")
                 plt.fill_between(x_nodes,(reg_mean_map[_rowcut, :]-reg_std_map[_rowcut, :])*1e12,(reg_mean_map[_rowcut, :]+reg_std_map[_rowcut, :])*1e12,color="black",alpha=0.3)
                 plt.plot(w[where_row], (m * s)[where_row]*1e12, label="Combined Model", color=color_list[0])
-                plt.plot(w[where_row], (paras[0] * M[:, 0] * s)[where_row]*1e12, label="planet model", color="pink")
+                plt.plot(w[where_row], (paras[0] * M[:, 0] * s)[where_row]*1e12, label="companion model", color="pink")
                 plt.plot(w[where_row], ((m - paras[0] * M[:, 0]) * s)[where_row]*1e12, label="starlight model",color=color_list[2])
                 plt.errorbar(x_nodes,reg_mean_map[_rowcut, :]*1e12,yerr=reg_std_map[_rowcut, :]*1e12,color="black", ls='none',label="RDI prior")
                 if rowcutid == 0:
@@ -607,7 +607,7 @@ if __name__ == "__main__":
             plt.text(0.01, 0.98, "Row {0}".format(_rowcut), fontsize=fontsize, ha='left', va='top', transform=plt.gca().transAxes,color="black")
             plt.fill_between(x_knots,(reg_mean_map[_rowcut, :]-reg_std_map[_rowcut, :])*1e12,(reg_mean_map[_rowcut, :]+reg_std_map[_rowcut, :])*1e12,color="black",alpha=0.3)
             plt.plot(d_wvs[where_row], (m * s)[where_row]*1e12, label="Combined Model", color=color_list[0])
-            plt.plot(d_wvs[where_row], (paras[0] * M[:, 0] * s)[where_row]*1e12, label="planet model", color="pink")
+            plt.plot(d_wvs[where_row], (paras[0] * M[:, 0] * s)[where_row]*1e12, label="Companion model", color="pink")
             plt.plot(d_wvs[where_row], ((m - paras[0] * M[:, 0]) * s)[where_row]*1e12, label="starlight model",color=color_list[2])
             plt.errorbar(x_knots,reg_mean_map[_rowcut, :]*1e12,yerr=reg_std_map[_rowcut, :]*1e12,color="black", ls='none',label="RDI prior")
             if rowcutid == 0:

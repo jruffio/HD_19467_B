@@ -192,7 +192,9 @@ if __name__ == "__main__":
         r2star_grid = np.sqrt((ra_grid) ** 2 + (dec_grid) ** 2)
 
         if 1:
-            snr_map2 = snr_map/ np.nanstd(snr_map[np.where(r2comp_grid > 0.3)])
+            snr_scaling = np.nanstd(snr_map[np.where(r2comp_grid > 0.3)])
+            snr_map2 = snr_map/ snr_scaling
+            fluxerr_map = fluxerr_map*snr_scaling
         else:# assuming error is systematics limited, meaning error proportional to speckle intensity
             im_err_2 = np.sqrt(np.nansum(flux_cube_ref ** 2, axis=0)) / flux_cube_ref.shape[0]
             snr_map2 = flux_map / flux_map_ref

@@ -2,7 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from  scipy.interpolate import interp1d
 import os
+import scipy.io as scio
 import astropy.io.fits as fits
+import pandas as pd
 from glob import glob
 import multiprocessing as mp
 import h5py
@@ -22,6 +24,10 @@ from copy import copy
 import matplotlib
 matplotlib.use('Qt5Agg')
 
+import matplotlib.gridspec as gridspec # GRIDSPEC !
+from matplotlib.colorbar import Colorbar
+import matplotlib.patheffects as PathEffects
+
 if __name__ == "__main__":
     try:
         import mkl
@@ -32,6 +38,9 @@ if __name__ == "__main__":
     ####################
     ## To be modified
     ####################
+    # Ouput dir for final figures and fits files
+    out_png = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/figures"
+    color_list = ["#ff9900", "#006699", "#6600ff", "#006699", "#ff9900", "#6600ff"]
     # Number of threads to be used for multithreading
     numthreads = 20
     # Number of nodes
@@ -53,10 +62,6 @@ if __name__ == "__main__":
     utils_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_utils_fm/"
     if not os.path.exists(utils_dir):
         os.makedirs(utils_dir)
-    # out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240201_out_fm/xy/"
-    out_dir = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/xy/"
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
     # spectrum to be used for the companion template
     RDI_spec_filename = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/figures/HD19467b_RDI_1dspectrum_MJy.fits"
     ####################
@@ -70,22 +75,6 @@ if __name__ == "__main__":
     # definiton of the nodes for the spline
     x_nodes_nrs1 = np.linspace(2.859509, 4.1012874, nodes, endpoint=True)
     x_nodes_nrs2 = np.linspace(4.081285, 5.278689, nodes, endpoint=True)
-    # if 1: # Different attempt at define the nodes
-    #     dw1,dw2 = 0.02,0.04
-    #     l0,l2 = 2.859509-dw1, 4.1012874
-    #     l1 = (l0+l2)/2
-    #     x1_nodes = np.arange(l0,l1, dw1)
-    #     l1 = x1_nodes[-1]+dw2
-    #     x2_nodes = np.arange(l1,l2, dw2)
-    #     x_nodes_nrs1 = np.concatenate([x1_nodes,x2_nodes])
-    # if 1:
-    #     dw1,dw2 = 0.04,0.02
-    #     l0,l2 = 4.081285,5.278689+dw2
-    #     l1 = (l0+l2)/2
-    #     x1_nodes = np.arange(l0,l1, dw1)
-    #     l1 = x1_nodes[-1]+dw2
-    #     x2_nodes = np.arange(l1,l2, dw2)
-    #     x_nodes_nrs2 = np.concatenate([x1_nodes,x2_nodes])
     # List of empirical offsets to correct the wcs coordinate system
     centroid_nrs1 = [-0.13499443, -0.07202978]
     centroid_nrs2 = [-0.12986898, -0.08441719]
@@ -113,11 +102,11 @@ if __name__ == "__main__":
 
     mypool = mp.Pool(processes=numthreads)
 
-    for filename in filelist[0::]:
+    for filename in filelist[0:2]:
         print(filename)
 
         if "nrs1" in filename:
-            # continue
+            continue
             detector = "nrs1"
             wv_sampling = wv_sampling_nrs1
             photfilter_name = photfilter_name_nrs1
@@ -159,12 +148,7 @@ if __name__ == "__main__":
 
         dataobj = JWSTNirspec_cal(filename, crds_dir=crds_dir, utils_dir=utils_dir,
                                   save_utils=True,load_utils=True,preproc_task_list=preproc_task_list)
-        # plt.imshow(dataobj.area2d,origin="lower")
-        # plt.colorbar()
-        # plt.show()
-    #     plt.plot(wv_sampling,dataobj.star_func(wv_sampling))
-    # plt.show()
-    # if 1:
+
         where2mask = where_point_source(dataobj,(ra_offset,dec_offset),0.4)
         tmp_badpixels = copy(dataobj.bad_pixels)
         tmp_badpixels[where2mask] = np.nan
@@ -261,13 +245,88 @@ if __name__ == "__main__":
         # /!\ Optional but recommended
         # Test the forward model for a fixed value of the non linear parameter.
         # Make sure it does not crash and look the way you want
-        if 0:
-            # fm_paras["fix_parameters"]= [None,None,None,sc_fib]
-            print(ra_offset,dec_offset)
+        if 1:
+            dist2comp_as = np.sqrt((dataobj.dra_as_array-ra_offset) ** 2 + (dataobj.ddec_as_array-dec_offset) ** 2)
+            dist2host_as = np.sqrt((dataobj.dra_as_array) ** 2 + (dataobj.ddec_as_array) ** 2)
+            mask_comp  = dist2comp_as<0.1
+            mask_host  = dist2host_as<0.1
+            mask = np.zeros(dataobj.data.shape)+np.nan
+            mask[np.isfinite(dataobj.dra_as_array)] = 1
+
+            fontsize = 12
+            fig = plt.figure(1, figsize=(12, 6))
+            gs = gridspec.GridSpec(3, 5, height_ratios=[0.0, 1,0.0], width_ratios=[0.1, 1,0.2,1,0.1])
+            gs.update(left=0.05, right=0.95, bottom=0.05, top=0.95, wspace=0.0, hspace=0.0)
+            # gs.update(left=0.00, right=1, bottom=0.0, top=1, wspace=0.0, hspace=0.0)
+
+            colmin,colmax = 262,330
+            rowcut = 318#318
+            Nrows_max = 200
+            N_reg = Nrows_max*nodes
+
+
+            ax1 = plt.subplot(gs[1, 1])
+            plt.imshow(dataobj.data,origin="lower",interpolation="nearest")
+            plt.clim([0,1e-9])
+            plt.text(0.03, 0.98, "NIRSpec Detector (NRS2)", fontsize=fontsize, ha='left', va='top', transform=plt.gca().transAxes,color="black")
+            plt.gca().annotate('Star', xy=(1700, 716), xytext=(1850, 716),color="black", fontsize=fontsize,
+                arrowprops=dict(facecolor="black", shrink=0.2,width=1),horizontalalignment='left',verticalalignment='center')
+            # plt.gca().annotate('Area', xy=(1825, colmax+10), fontsize=fontsize,color="Red",horizontalalignment='center',verticalalignment='bottom')
+            plt.gca().annotate('Companion\n  area', xy=(1825, colmin-10), fontsize=fontsize,color="Red",horizontalalignment='center',verticalalignment='top')
+                # arrowprops=dict(facecolor=color_list[1], shrink=0.05))
+            # contour = plt.gca().contour(mask.astype(int), colors="grey", levels=[0.5],alpha=1)
+            # contour = plt.gca().contourf(mask_comp.astype(int), colors="#ff9900", levels=[0.5,1.5],alpha=1)
+            # contour = plt.gca().contourf(mask_host.astype(int), colors="#006699", levels=[0.5,1.5],alpha=1)
+            # plt.gca().set_aspect('equal')
+            plt.xlim([0,2048])
+            plt.ylim([0,2048])
+            plt.fill_between([0,2048],[colmin-0.5,colmin-0.5],[colmax+0.5,colmax+0.5],color="pink",alpha=0.5)
+            plt.xlabel("Columns (pix)",fontsize=fontsize)
+            plt.ylabel("Rows (pix)",fontsize=fontsize)
+            plt.gca().tick_params(axis='x', labelsize=fontsize)
+            plt.gca().tick_params(axis='y', labelsize=fontsize)
+
+            ax1 = plt.subplot(gs[1, 3])
+            # contour = plt.gca().contour(mask.astype(int), colors="grey", levels=[0.5],alpha=1)
+            plt.fill_between([0,2048],[colmin-0.5,colmin-0.5],[colmax+0.5,colmax+0.5],color="pink",alpha=0.4, zorder=0)
+            plt.imshow(dataobj.data,origin="lower",interpolation="nearest",extent=[-0.5,dataobj.data.shape[1]+0.5,-0.5,dataobj.data.shape[0]+0.5],aspect=1950./(colmax-colmin+1),alpha=1)
+            txt = plt.text(0.03, 0.98, "Zoom in companion area", fontsize=fontsize, ha='left', va='top', transform=plt.gca().transAxes,color="black")
+            txt = txt.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='w')])
+            plt.plot([0,2048],[rowcut,rowcut],linestyle="--",linewidth=3,color=color_list[0])
+            txt = plt.text(1640, rowcut+0.5, "Row {0}".format(rowcut), fontsize=fontsize, ha='left', va='bottom',color=color_list[0])
+            txt = txt.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='w')])
+            plt.clim([0.0e-10,1e-10])
+            # contour = plt.gca().contourf(mask.astype(int), colors="grey", levels=[0.5,1.5],alpha=0.7)
+            # contour = plt.gca().contourf(mask_comp.astype(int), colors="red", levels=[0.5,1.5],alpha=1)
+            contour = plt.gca().contour(mask_comp.astype(int), colors="red", levels=[0.5,1.5],alpha=1)
+            contour.collections[0].set_linewidth(2)
+            # contour = plt.gca().contourf(mask_host.astype(int), colors="#006699", levels=[0.5,1.5],alpha=1)
+            # plt.text(800, colmax-8, "Companion Trace", fontsize=fontsize, ha='center', va='top',color="red",rotation=10)
+            # plt.text(800, colmin+10, "Companion Trace", fontsize=fontsize, ha='center', va='top',color="red",rotation=10)
+            txt = plt.gca().annotate('Companion Trace', xy=(800, colmax-14), xytext=(800, (colmin+colmax)/2-10),color="red", fontsize=fontsize,
+                arrowprops=dict(facecolor="red", shrink=0.05),horizontalalignment='center',verticalalignment='center')
+            txt = txt.set_path_effects([PathEffects.withStroke(linewidth=2, foreground='w')])
+            plt.gca().annotate('', xy=(800, colmin+5), xytext=(800, (colmin+colmax)/2-12),color=color_list[0], fontsize=fontsize,
+                arrowprops=dict(facecolor="red", shrink=0.05),horizontalalignment='center',verticalalignment='center')
+            plt.xlim([0,1950])
+            plt.ylim([colmin-0.5,colmax+0.5])
+            plt.xlabel("Columns (pix)",fontsize=fontsize)
+            plt.ylabel("Rows (pix)",fontsize=fontsize)
+            plt.gca().tick_params(axis='x', labelsize=fontsize)
+            plt.gca().tick_params(axis='y', labelsize=fontsize)
+
+            out_filename = os.path.join(out_png, "FM_im.png")
+            print("Saving " + out_filename)
+            plt.savefig(out_filename, dpi=300)
+            plt.savefig(out_filename.replace(".png", ".pdf"))
+
+            # plt.show()
+
+            fig = plt.figure(2, figsize=(12, 8))
+            gs = gridspec.GridSpec(6, 3, height_ratios=[0.00,0.3,0.3,0.1,0.1,0.1], width_ratios=[0.05, 1,0.2])
+            gs.update(left=0.05, right=0.95, bottom=0.1, top=0.95, wspace=0.0, hspace=0.0)
+
             nonlin_paras = [0.0,ra_offset,dec_offset] # rv (km/s), dra (arcsec),ddec (arcsec),
-            # nonlin_paras = [0, -0.9,-0.25] # rv (km/s), dra (arcsec),ddec (arcsec),
-            # nonlin_paras = [0, -1.4, -1.4] # rv (km/s), dra (arcsec),ddec (arcsec),
-            # nonlin_paras = [0, 0.5, -0.5]
             # d is the data vector a the specified location
             # M is the linear component of the model. M is a function of the non linear parameters x,y,rv
             # s is the vector of uncertainties corresponding to d
@@ -284,11 +343,18 @@ if __name__ == "__main__":
             shifted_w = w+(wv_sampling[-1]-wv_sampling[0])*(rows-np.nanmin(unique_rows))
             shifted_reg_wvs = reg_wvs+(wv_sampling[-1]-wv_sampling[0])*(reg_rows-np.nanmin(unique_rows))
 
-            # print(np.unique(where_finite[0]))
-            # mask_comp = np.zeros(dataobj.data.shape)
-            # mask_comp[where_finite] = 1
+            M_full = copy(M/s[:,None])
+            where_row =np.where(where_finite[0]==rowcut)
+            print("all rows:",len(np.unique(where_finite[0])), np.unique(where_finite[0]))
+            mask_comp = np.zeros(dataobj.data.shape)
+            mask_comp[where_finite] = 1
 
+            wvs_im = dataobj.wavelengths
+            cols_im = np.tile(np.arange(wvs_im.shape[1])[None,:],(wvs_im.shape[0],1))
+            d_wvs = wvs_im[where_finite]
+            d_cols = cols_im[where_finite]
 
+            print(M.shape)
             validpara = np.where(np.max(np.abs(M),axis=0)!=0)
             M = M[:,validpara[0]]
 
@@ -303,15 +369,14 @@ if __name__ == "__main__":
                                                                          residuals=residuals,residuals_H0=residuals_H0,noise4residuals=noise4residuals,
                                                                          scale_noise=True,marginalize_noise_scaling=False)
             paras = linparas[validpara]
+            paras_full = linparas
             print("best fit", linparas[0:5])
             print("best fit err",linparas_err[0:5])
             print("best fit snr",linparas[0:5]/linparas_err[0:5])
-            print("rchi2",rchi2)
-            plt.figure(10)
-            plt.plot(linparas,label="linparas")
-            plt.plot(linparas_err,label="linparas_err")
-            plt.legend()
 
+
+            # print((paras[0]*u.MJy *(const.c)/(photfilter_wv0*u.um)**2).to( u.W/u.m**2/u.um))
+            # print((paras[0]*u.MJy *(const.c)/(photfilter_wv0*u.um)).to( u.W/u.m**2))
 
             logdet_Sigma = np.sum(2 * np.log(s))
             m = np.dot(M, paras)
@@ -319,220 +384,107 @@ if __name__ == "__main__":
             chi2 = np.nansum(r**2)
             N_data = np.size(d)
             rchi2 = chi2 / N_data
+
             res = r * s
 
-            plt.figure(1)
-            plt.subplot(3,1,1)
-            plt.plot(shifted_w,d*s,label="data")
-            plt.plot(shifted_w,m*s,label="Combined model")
-            plt.plot(shifted_w,paras[0]*M[:,0]*s,label="planet model")
-            plt.plot(shifted_w,(m-paras[0]*M[:,0])*s,label="starlight model")
-            where_even_rows = np.where((reg_rows % 2)==0)
-            plt.errorbar(shifted_reg_wvs[where_even_rows],d_reg[where_even_rows],yerr=s_reg[where_even_rows],label="even rows prior")
-            where_odd_rows = np.where((reg_rows % 2)==1)
-            plt.errorbar(shifted_reg_wvs[where_odd_rows],d_reg[where_odd_rows],yerr=s_reg[where_odd_rows],label="odd rows prior")
-            plt.ylabel("Flux (MJy)")
-            plt.xlabel("Column pixels")
-            plt.legend()
+            ax1 = plt.subplot(gs[1, 1])
+            plt.text(0.01, 0.98, "Forward model - Row {0}".format(rowcut), fontsize=fontsize, ha='left', va='top', transform=plt.gca().transAxes,color="black")
+            plt.plot(d_wvs[where_row],(d*s)[where_row]*1e12,label="Data",color=color_list[1])
+            plt.plot(d_wvs[where_row],(m*s)[where_row]*1e12,label="Combined Model",color=color_list[0])
+            plt.plot(d_wvs[where_row],(paras[0]*M[:,0]*s)[where_row]*1e12,label="Companion model",color="pink")
+            plt.plot(d_wvs[where_row],((m-paras[0]*M[:,0])*s)[where_row]*1e12,label="starlight model",color=color_list[2])
+            plt.legend(fontsize=fontsize,loc="upper left", bbox_to_anchor=(1.01, 1))
+            plt.ylabel("Flux ($\mu$Jy)",fontsize=fontsize)
+            plt.gca().set_xticklabels([])
+            plt.gca().tick_params(axis='y', labelsize=fontsize)
+            plt.ylim([-0.5e1, 8e1])
+            plt.xlim([d_wvs[where_row][0],d_wvs[where_row][-1]])
 
-            plt.subplot(3,1,2)
-            plt.plot(shifted_w,r,label="Residuals")
-            # plt.fill_between(np.arange(np.size(s)),-1,1,label="Error",alpha=0.5)
-            r_std = np.nanstd(r)
-            plt.ylim([-10*r_std,10*r_std])
-            plt.ylabel("Flux (MJy)")
-            plt.xlabel("Column pixels")
-            plt.legend()
+            ax1 = plt.subplot(gs[2, 1])
+            startid = np.where(np.unique(where_finite[0]) == rowcut)[0][0]*nodes+1
+            # print(np.where(np.unique(where_finite[0]) == rowcut)[0][0], startid,nodes)
+            mrow = np.dot(M_full[:, startid:startid+nodes], paras_full[startid:startid+nodes])
+            # mrow2 = np.dot(M_full[:, startid+1:startid+nodes], paras_full[startid+1:startid+nodes])
+            # mrow3 = np.dot(M_full[:, startid+2:startid+nodes], paras_full[startid+2:startid+nodes])
+            # mrow4 = np.dot(M_full[:, startid+3:startid+nodes], paras_full[startid+3:startid+nodes])
+            # mrow5 = np.dot(M_full[:, startid+4:startid+nodes], paras_full[startid+4:startid+nodes])
+            plt.plot(d_wvs[where_row],(mrow*s)[where_row]*1e12,label="starlight model",color=color_list[2])
+            # plt.plot(d_wvs[where_row],(mrow2*s)[where_row],label="starlight model2")
+            # plt.plot(d_wvs[where_row],(mrow3*s)[where_row],label="starlight model3")
+            # plt.plot(d_wvs[where_row],(mrow4*s)[where_row],label="starlight model4")
+            # plt.plot(d_wvs[where_row],(mrow5*s)[where_row],label="starlight model5")
+            # plt.plot(d_wvs[where_row],(mrow*s)[where_row],label="test",color=color_list[1],linestyle="--")
+            # plt.show()
+            # for k in np.arange(1,Nrows_max*nodes+1):
+            #     if np.nansum(M_full[where_row[0],k]!=0) ==0:
+            #         continue
+            for k in np.arange(startid,startid+nodes): #start 602
+                # print("spline",k)
+                # plt.plot(d_wvs[where_row],(mrow*s)[where_row],label="starlight model",color=color_list[2])
+                if k !=startid+20:
+                    plt.plot(d_wvs[where_row],((paras_full[k]*M_full[:,k])*s)[where_row]*1e12,linestyle="--", color=color_list[2],alpha=0.5)
+                else:
+                    plt.plot(d_wvs[where_row],((paras_full[k]*M_full[:,k])*s)[where_row]*1e12,linestyle="--", color=color_list[2],alpha=0.5,label="Sub-components")
+            # plt.errorbar(x_knots,reg_mean_map[rowcut, :],yerr=reg_std_map[rowcut, :],color="black", ls='none',label="RDI prior")
+            plt.legend(fontsize=fontsize,loc="upper left", bbox_to_anchor=(1.01, 1))
+            plt.ylabel("Flux ($\mu$Jy)",fontsize=fontsize)
+            plt.gca().set_xticklabels([])
+            plt.gca().tick_params(axis='y', labelsize=fontsize)
+            plt.ylim([-0.5e1, 8e1])
+            plt.xlim([d_wvs[where_row][0],d_wvs[where_row][-1]])
 
-            plt.subplot(3,1,3)
-            plt.plot(shifted_w,M[:,0],label="planet model")
+            ax1 = plt.subplot(gs[3, 1])
+            startid = Nrows_max*nodes+1+np.where(np.unique(where_finite[0]) == rowcut)[0][0]*len(wvs_KLs_f_list)
+            print(startid)
+            # for k in np.arange(Nrows_max*nodes+1,Nrows_max*(nodes+len(wvs_KLs_f_list))+1):
+            #     if np.nansum(M_full[where_row[0],k]!=0) ==0:
+            #         continue
+            for k in np.arange(startid,startid+len(wvs_KLs_f_list)//2): #8091
+                # print("kls",k)
+                if k !=startid:
+                    plt.plot(d_wvs[where_row],((paras_full[k]*M_full[:,k])*s)[where_row]*1e12,linestyle="-", color="grey",alpha=0.5)
+                else:
+                    plt.plot(d_wvs[where_row],((paras_full[k]*M_full[:,k])*s)[where_row]*1e12,linestyle="-", color="grey",alpha=0.5,label="Left PCs")
+            plt.legend(fontsize=fontsize,loc="upper left", bbox_to_anchor=(1.01, 1))
+            plt.gca().set_xticklabels([])
+            plt.ylabel("Flux ($\mu$Jy)",fontsize=fontsize)
+            plt.gca().tick_params(axis='y', labelsize=fontsize)
+            plt.gca().set_yticks([-5e-1,0,5e-1])
+            plt.ylim([-7.5e-1, 7.5e-1])
+            plt.xlim([d_wvs[where_row][0],d_wvs[where_row][-1]])
 
-            # plt.subplot(4,1,4)
-            # for k in range(np.min([50,M.shape[-1]-1])):
-            #     plt.plot(shifted_w,M[:,k+1],label="starlight model {0}".format(k+1))
-            # # plt.legend()
+            ax1 = plt.subplot(gs[4, 1])
+            for k in np.arange(startid+len(wvs_KLs_f_list)//2,startid+len(wvs_KLs_f_list)): #8091+3
+                print("kls",k)
+                if k !=startid+len(wvs_KLs_f_list)//2:
+                    plt.plot(d_wvs[where_row],((paras_full[k]*M_full[:,k])*s)[where_row]*1e12,linestyle="-", color="grey",alpha=0.5)
+                else:
+                    plt.plot(d_wvs[where_row],((paras_full[k]*M_full[:,k])*s)[where_row]*1e12,linestyle="-", color="grey",alpha=0.5,label="Right PCs")
+            plt.legend(fontsize=fontsize,loc="upper left", bbox_to_anchor=(1.01, 1))
+            plt.gca().set_xticklabels([])
+            # plt.ylabel("Flux (MJy)",fontsize=fontsize)
+            plt.gca().tick_params(axis='y', labelsize=fontsize)
+            plt.gca().set_yticks([-5e-1,0,5e-1])
+            plt.ylim([-7.5e-1, 7.5e-1])
+            plt.xlim([d_wvs[where_row][0],d_wvs[where_row][-1]])
 
-            plt.figure(2)
-            plt.subplot(3,1,1)
-            plt.scatter(w,res,alpha=0.5,s=0.1)
-            plt.xlabel("Wavelength (um)")
-            plt.subplot(3,1,2)
-            plt.scatter(rows,res,alpha=0.5,s=0.1)
-            plt.xlabel("Column index")
-            plt.tight_layout()
-            plt.subplot(3,1,3)
-            fcal= "/stow/jruffio/data/JWST/nirspec/HD_19467/HD19467_onaxis_roll2/stage2_notelegraph/jw01414004001_02101_00003_nrs1_cal.fits"
-            hdulist_sc = fits.open(fcal)
-            im = hdulist_sc["SCI"].data
-            # plt.plot(im[220,:])
-            random_ints = np.array([219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 268, 269])
-            for row in random_ints:#random_ints:
-                plt.plot(im[row,:],alpha=0.5)
-            plt.ylim([-1e-10,1e-10])
 
-            plt.figure(3)
-            cumchi2_H1 = np.nancumsum(residuals**2)
-            cumchi2_H0 = np.nancumsum(residuals_H0**2)
-            plt.subplot(1,2,1)
-            plt.plot(shifted_w,(cumchi2_H1-cumchi2_H0)[0:np.size(shifted_w)],linestyle="--",label="cumchi2_H1-cumchi2_H0 (cropped)")
-            plt.subplot(1,2,2)
-            # chi2 66923.0714571091
-            # chi2_H0 66952.78313085782
-            # plt.plot(cumchi2-cumchi2_H0,label="cumchi2-cumchi2_H0")
-            plt.plot(cumchi2_H1-cumchi2_H0,linestyle="--",label="cumchi2_H1-cumchi2_H0")
-            plt.legend()
-            plt.figure(4)
-            plt.plot(cumchi2_H1,linestyle="--",label="cumchi2_H1")
-            plt.plot(cumchi2_H0,linestyle="--",label="cumchi2_H0")
-            plt.legend()
+            ax1 = plt.subplot(gs[5, 1])
+            plt.scatter(d_wvs[where_row],(res)[where_row]*1e12,label="Residuals",color="black",s=1)
+            plt.fill_between(d_wvs[where_row],-(s)[where_row]*1e12,(s)[where_row]*1e12,label="Flux error",alpha=0.5,color="grey")
+            plt.legend(fontsize=fontsize,loc="upper left", bbox_to_anchor=(1.01, 1))
+            plt.gca().set_yticks([-1e1,0,1e1])
+            plt.ylim([-1.5e1, 1.5e1])
+            plt.xlim([d_wvs[where_row][0],d_wvs[where_row][-1]])
+            plt.xlabel("Wavelength ($\mu$m)",fontsize=fontsize)
+            plt.ylabel("Flux ($\mu$Jy)",fontsize=fontsize)
+            plt.gca().tick_params(axis='x', labelsize=fontsize)
+            plt.gca().tick_params(axis='y', labelsize=fontsize)
+
+            out_filename = os.path.join(out_png, "FM.png")
+            print("Saving " + out_filename)
+            plt.savefig(out_filename, dpi=300)
+            plt.savefig(out_filename.replace(".png", ".pdf"))
 
             plt.show()
-
-
-        if 1:
-            rvs = np.array([0])
-            # rvs = np.linspace(-4000,4000,21,endpoint=True)
-            # ra_offset,dec_offset = 0.5,-0.5
-            # ras = np.arange(ra_offset-0.0,ra_offset+0.6,0.1)
-            # decs = np.arange(dec_offset-0.0,dec_offset+0.6,0.1)
-            # ras = np.arange(0,2.5,0.1)
-            # decs = np.arange(-2.0,1.0,0.1)
-            # ras = np.arange(-2.5,2.5,0.1)
-            # decs = np.arange(-3.0,2.0,0.1)
-            ras = np.arange(-2.5,2.5,0.05)
-            decs = np.arange(-3.0,2.0,0.05)
-            # ras = np.arange(-2.0,-1.5,0.1)
-            # decs = np.array([0])
-            if 0:
-                import cProfile
-                import pstats
-                cProfile.run("grid_search([rvs,ras,decs],dataobj,fm_func,fm_paras,numthreads=None)",
-                             '../profiling_results')
-                # Load the profiling results into a pstats object
-                profiler = pstats.Stats('profiling_results')
-                # Sort the results by tottime (total time spent in a function)
-                profiler.sort_stats('cumtime')
-                # Print the sorted profiling results
-                profiler.print_stats()
-                exit()
-            # log_prob,log_prob_H0,rchi2,linparas,linparas_err = grid_search([rvs,ras,decs],dataobj,fm_func,fm_paras,numthreads=None)
-            log_prob,log_prob_H0,rchi2,linparas,linparas_err = grid_search([rvs,ras,decs],dataobj,fm_func,fm_paras,numthreads=numthreads,computeH0=False)
-            N_linpara = linparas.shape[-1]
-
-            import datetime
-            now = datetime.datetime.now()
-            formatted_datetime = now.strftime("%Y%m%d_%H%M%S")
-
-            outoftheoven_filename = os.path.join(out_dir,formatted_datetime+"_"+os.path.basename(filename).replace(".fits","_out.fits"))
-            print(outoftheoven_filename)
-            with h5py.File(outoftheoven_filename, 'w') as hf:
-                hf.create_dataset("rvs", data=rvs)
-                hf.create_dataset("ras", data=ras)
-                hf.create_dataset("decs", data=decs)
-                hf.create_dataset("log_prob", data=log_prob)
-                hf.create_dataset("log_prob_H0", data=log_prob_H0)
-                hf.create_dataset("rchi2", data=rchi2)
-                hf.create_dataset("linparas", data=linparas)
-                hf.create_dataset("linparas_err", data=linparas_err)
-        else:
-            print(os.path.join(out_dir,"*_"+os.path.basename(filename).replace(".fits","_out.fits")))
-            outoftheoven_filelist = glob(os.path.join(out_dir,"*_"+os.path.basename(filename).replace(".fits","_out.fits")))
-            outoftheoven_filelist.sort()
-            outoftheoven_filename = outoftheoven_filelist[-1]
-            print(outoftheoven_filename)
-            # outoftheoven_filename = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/out/20230417_231940_jw01414004001_02101_00001_nrs2_cal_out.fits"
-            with h5py.File(outoftheoven_filename, 'r') as hf:
-                rvs = np.array(hf.get("rvs"))
-                ras = np.array(hf.get("ras"))
-                decs = np.array(hf.get("decs"))
-                log_prob = np.array(hf.get("log_prob"))
-                log_prob_H0 = np.array(hf.get("log_prob_H0"))
-                rchi2 = np.array(hf.get("rchi2"))
-                linparas = np.array(hf.get("linparas"))
-                linparas_err = np.array(hf.get("linparas_err"))
-
-    mypool.close()
-    mypool.join()
-
-    k=0
-    # k,l,m = np.unravel_index(np.nanargmax(log_prob-log_prob_H0),log_prob.shape)
-    # print("best fit parameters: rv={0},y={1},x={2}".format(rvs[k],ras[l],decs[m]) )
-    # print(np.nanmax(log_prob-log_prob_H0))
-    # best_log_prob,best_log_prob_H0,_,_,_ = grid_search([[rvs[k]], [ras[l]], [decs[m]]], dataobj, fm_func, fm_paras, numthreads=None)
-    # print(best_log_prob-best_log_prob_H0)
-
-    linparas = np.swapaxes(linparas, 1, 2)
-    linparas_err = np.swapaxes(linparas_err, 1, 2)
-    log_prob = np.swapaxes(log_prob, 1, 2)
-    log_prob_H0 = np.swapaxes(log_prob_H0, 1, 2)
-    rchi2 = np.swapaxes(rchi2, 1, 2)
-
-    dra=ras[1]-ras[0]
-    ddec=decs[1]-decs[0]
-    ras_grid,decs_grid = np.meshgrid(ras,decs)
-    rs_grid = np.sqrt(ras_grid**2+decs_grid**2)
-    print(ra_offset,dec_offset)
-    rs_comp_grid = np.sqrt((ras_grid-ra_offset)**2+(decs_grid-dec_offset)**2)
-    # plt.imshow(rs_comp_grid,origin="lower")
-    # plt.show()
-
-    plt.figure(1)
-    plt.subplot(1,3,1)
-    plt.title("SNR map")
-    snr_map = linparas[k,:,:,0]/linparas_err[k,:,:,0]
-    # print("SNR std",np.nanmax(snr_map[np.where(rs_comp_grid>0.4)]))
-    print("SNR std",np.nanstd(snr_map[np.where((rs_comp_grid>0.7)*np.isfinite(snr_map))]))
-    plt.imshow(snr_map,origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
-    plt.clim([-2,5])
-    cbar = plt.colorbar()
-    cbar.set_label("SNR")
-    # plt.plot(out[:,0,0,2])
-    plt.xlabel("dRA (as)")
-    plt.ylabel("ddec (as)")
-
-    contrast_5sig  = 5*linparas_err[k,:,:,0]/HD19467_flux_MJy[photfilter_name]
-    print(HD19467_flux_MJy[photfilter_name])
-    nan_mask_boxsize=2
-    contrast_5sig[np.where(np.isnan(correlate2d(contrast_5sig,np.ones((nan_mask_boxsize,nan_mask_boxsize)),mode="same")))] = np.nan
-
-    plt.subplot(1,3,2)
-    plt.title("Flux map")
-    plt.imshow(linparas[k,:,:,0],origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
-    cbar = plt.colorbar()
-    cbar.set_label("planet flux MJy")
-    plt.xlabel("dRA (as)")
-    plt.ylabel("ddec (as)")
-    plt.subplot(1,3,3)
-    plt.title("5-$\sigma$ Sensitivity 2D {0}".format(photfilter_name))
-    plt.imshow(np.log10(contrast_5sig),origin="lower",extent=[ras[0]-dra/2.,ras[-1]+dra/2.,decs[0]-ddec/2.,decs[-1]+ddec/2.])
-    # plt.clim([0,100])
-    plt.xlabel("dRA (as)")
-    plt.ylabel("ddec (as)")
-    cbar = plt.colorbar()
-    cbar.set_label("5-$\sigma$ Flux ratio log10 ({0})".format(photfilter_name))
-
-    plt.figure(3)
-    plt.title("5-$\sigma$ Sensitivity 1D")
-    plt.scatter(rs_grid,contrast_5sig)
-    plt.yscale("log")
-    plt.xlabel("Separation (as)")
-    plt.ylabel("5-$\sigma$ Flux ratio ({0})".format(photfilter_name))
-
-    plt.figure(4)
-    snr_map_masked = copy(snr_map)
-    snr_map_masked[np.where((rs_comp_grid < 0.7))] = np.nan
-
-    # Create a histogram using the hist function from NumPy
-    hist, bins = np.histogram(snr_map_masked[np.where(np.isfinite(snr_map_masked))], bins=20*3, range=(-10, 10))#, bins=256, range=(0, 256)
-    bin_centers = (bins[1::]+bins[0:np.size(bins)-1])/2.
-    plt.plot(bin_centers,hist/(np.nansum(hist)*(bins[1]-bins[0])),label="snr map")
-    plt.plot(bin_centers,1/np.sqrt(2*np.pi)*np.exp(-0.5*(bin_centers-0.0)**2),color="black",linestyle="--",label="Gaussian")
-    plt.yscale("log")
-    plt.ylim([1e-4,1])
-    plt.legend()
-    plt.show()
-
-
-
-
-    exit()
+            exit()
