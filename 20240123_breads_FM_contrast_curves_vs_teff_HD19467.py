@@ -26,13 +26,14 @@ if __name__ == "__main__":
     except:
         pass
 
+
     ####################
     ## To be modified
     ####################
-    teffs_list = [3000,2500,2000,1500,1000,500]
-    # teffs_list = [500,1000,1500]
+    # teffs_list = [3000,2500,2000,1500,1000,500]
+    # teffs_list = [2500,2000,1500,1000,500]
     # teffs_list = [ 1500,2000,2500,3000]
-    # teffs_list = [3000]
+    teffs_list = [1500]
     # Number of threads to be used for multithreading
     numthreads = 20
     # Number of nodes
@@ -111,14 +112,14 @@ if __name__ == "__main__":
     ####################
 
 
-    mypool = mp.Pool(processes=numthreads)
 
     for myteff in teffs_list:
         out_dir = os.path.join(out_dir0,"xy_{0}K/".format(myteff))
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        for filename in filelist:
+        for filename in filelist[11::]:
             print(filename)
+            mypool = mp.Pool(processes=numthreads)
 
             if "nrs1" in filename:
                 # continue
@@ -515,10 +516,10 @@ if __name__ == "__main__":
                 plt.ylim([1e-4,1])
                 plt.legend()
                 plt.show()
+            mypool.close()
+            mypool.join()
 
 
-    mypool.close()
-    mypool.join()
 
 
     exit()

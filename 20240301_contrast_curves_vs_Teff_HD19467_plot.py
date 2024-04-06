@@ -31,6 +31,7 @@ if __name__ == "__main__":
     ## To be modified
     ####################
     teffs_list = [500,1000, 1500,2000,2500,3000]
+    teffs_list = [500,1000,2000,3000]
     # teffs_list = [500,1000]
     # teffs_list = [ 1500,2000,2500,3000]
     color_list = ["#ff9900","#006699", "#6600ff", "#006699", "#ff9900", "#6600ff"]
@@ -45,7 +46,8 @@ if __name__ == "__main__":
     # output dir for images
     out_png = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/figures"
     # out_png = out_dir.replace("xy","figures")
-    out_dir0 = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/"
+    # out_dir0 = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240216_out_fm/"
+    out_dir0 = "/stow/jruffio/data/JWST/nirspec/HD_19467/breads/20240311_out_fm/"
     if not os.path.exists(out_png):
         os.makedirs(out_png)
     # Science data: List of stage 2 cal.fits files

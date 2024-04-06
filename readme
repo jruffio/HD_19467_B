@@ -32,9 +32,6 @@ HD19467b_RDI_1dspectrum_Flambda_modified.fits:
 HD19467b_RDI_1dspectrum_speckles_Flambda_modified.fits:
     Spectrum of the speckles around HD19467B in W/m2/um (0.4-0.5'' annulus around the companion)
 
-HD19467b_covariance.fits:
-    Covariance matrix for the spectrum of HD19467B
-
 model_Teff1400_wvs.npy,model_Teff1400_flux.npy:
     Wavelength and example spectrum of a atmospheric model used in covariance_chi2_example.ipynb.
 
@@ -112,8 +109,12 @@ Forward modeling (FM), detection maps, and contrast curves
     Process the HD19467B dataset varying the effective temperature of a BT-settl model
     Mostly identical to 20240123_breads_FM_snr_maps_HD19467.py otherwise.
 
-20240123_figXX_breads_FM_injection_and_recovery_HD19467.py
+20240123_fig25_breads_FM_injection_and_recovery_HD19467.py.py
     Injection and recovery test for the companion flux estimation of the forward model.
+
+20240405_NIRSpec_IFU_ETC.py
+    Simple ETC example to scale NIRSpec IFU contrast curves as a function of planet Teff, stellar apparent magnitude,
+    integration time, and reference filter.
 
 ############
 Characterization
@@ -144,6 +145,7 @@ speckle_covariance_vf.ipynb
 
 covariance_chi2_example.ipynb
     Example for how to compute the chi2 WITH the covariance when fitting the spectrum of HD19467B.
+    Need to run speckle_covariance_vf.ipynb first to generate the covariance matrix file.
 
 ############
 Miscellaneous
