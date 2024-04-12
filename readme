@@ -4,7 +4,7 @@ For a particular figure from the paper, look for a fig## in the script name.
 Note: A number of updates were made to the manuscript and code between the submitted version of the manuscript (October 2023) and the current version (April 2024).
 See change history below.
 
-Relies on the breads package:
+Relies on the breads package (commit hash fb83691):
 https://github.com/jruffio/breads
 
 Installing breads for JWST on a Linux server using a conda environment (only tested on a single machine):
