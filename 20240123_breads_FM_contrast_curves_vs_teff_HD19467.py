@@ -33,9 +33,9 @@ if __name__ == "__main__":
     # teffs_list = [3000,2500,2000,1500,1000,500]
     # teffs_list = [2500,2000,1500,1000,500]
     # teffs_list = [ 1500,2000,2500,3000]
-    teffs_list = [1500]
+    teffs_list = [2500]
     # Number of threads to be used for multithreading
-    numthreads = 20
+    numthreads = 15
     # Number of nodes
     nodes = 60#40
     # Number of principal components (Karhunen-Loeve) modes to be added to the forward model
@@ -117,7 +117,7 @@ if __name__ == "__main__":
         out_dir = os.path.join(out_dir0,"xy_{0}K/".format(myteff))
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        for filename in filelist[11::]:
+        for filename in filelist[17::]:
             print(filename)
             mypool = mp.Pool(processes=numthreads)
 

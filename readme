@@ -1,6 +1,9 @@
 Description of the list of scripts used in Ruffio+2024 (https://ui.adsabs.harvard.edu/abs/2023arXiv231009902R/abstract).
 For a particular figure from the paper, look for a fig## in the script name.
 
+Note: A number of updates were made to the manuscript and code between the submitted version of the manuscript (October 2023) and the current version (April 2024).
+See change history below.
+
 Relies on the breads package:
 https://github.com/jruffio/breads
 
@@ -34,6 +37,10 @@ HD19467b_RDI_1dspectrum_speckles_Flambda_modified.fits:
 
 model_Teff1400_wvs.npy,model_Teff1400_flux.npy:
     Wavelength and example spectrum of a atmospheric model used in covariance_chi2_example.ipynb.
+
+HD19467B_5sig_contrast_vs_Teff_allfilters.csv
+    Detection sensitivity of NIRSpec as a function of effective temperature of the companion model (BTSettl - Allard+2003)
+    See 20240405_NIRSpec_IFU_ETC.py for an example use case.
 
 ############
 Reducing JWST raw data:
@@ -170,3 +177,21 @@ test_cov.py
     Plot point cloud of 2 datasets
 
 
+########################################################################################################################
+# Change history
+########################################################################################################################
+
+############
+# April 2024: Below are the main changes between the submitted manuscript (October 2023) and the current version:
+
+1/ The most notable change is the updated RDI spectrum (Figure 3), which looks much cleaner between 3-3.6um without visible oscillations caused by residual speckles in the original analysis. This was improved after cleaning up the code that interpolates the detector images on a regular wavelength grid. Note that the RDI framework itself did not change. The new RDI reduction also led to cleaner detection maps, S/N histogram, and contrast curves in Figure 2 and 13. We also computed a semi-empirical covariance matrix for the spectrum, which is fully described in a new appendix E for more accurate atmospheric inference in the future.
+
+2/ A new in-flight flux calibration of the NIRCam coronagraphy mode, combined with this new NIRSpec spectrum, resolved the flux inconsistency between the NIRCam and NIRSpec datasets on HD19467B. They are now in excellent agreement (See figure 3 and table 2). We revised the NIRCam sections accordingly. We note that the quoted systematics for both NIRCam and NIRSpec are now 5% instead of the 10% in the submitted manuscript thanks to progress made in the calibrations of those instruments.
+
+3/ In this work, we have expanded on the linear model formalism introduced in Ruffio+2019 by adding a prior (aka regularization) on the spline parameters which are used to fit the starlight. The main purpose of this change was to improve the numerical stability of the linear inversion. The second goal was the future application of this framework to constrain the continuum of the companion spectrum using a RDI-based prior on the speckles (Section 6). To do this, we made the point that adding a Gaussian prior on the linear parameters does not change the linear nature of the model, which can still be solved with a pseudo inverse by slightly modifying the model matrix and the data and noise vectors. While this part was correct, we incorrectly assumed that the covariance on the linear parameter and the marginalized posterior also remained unchanged. The covariance is where the companion flux error bar comes from and therefore the companion S/N. The posterior comes into play when estimating the uncertainties of atmospheric parameters (RV, Teff, etc.). We therefore added appendix A to discuss the changes to the maths for the covariance. The updated formulas did not however lead to any significant changes to the results. As an additional check, we fitted for the RV of the companion and added a plot looking at the RV uncertainty for each exposure.
+
+4/ In the data reduction of the JWST raw data (*_uncal.fits) into flux calibrated detector images (*_cal.fits), we added an intermediate step between the stage 1 and stage 2 pipeline to remove the vertical striping from the 1/f noise. The implemented method is conceptually similar to the NSClean algorithm by B. Rauscher, though we use an independent implementation as part of our forward modeling framework. This step also removes the extra flux that spreads over much of the detector due to charge transfer from the saturated star. See full description in new appendix C.
+
+5/ We originally manually normalized the flux of the PSF simulated by WebbPSF:
+See line 777 (in the submitted version) The flux of the simulated PSF is normalized by integrating it over an aperture with a 3'' radius. This was counterproductive as the WebbPSF package already normalizes the PSF, and does it more accurately. Our method would lead to unnecessary percent level systematics (due to unaccounted flux in the tail of the PSF beyond 3). This systematic would have been mostly corrected by the empirical flux calibration in section 3.7, but we still removed this step for simplicity and precision.
+############
